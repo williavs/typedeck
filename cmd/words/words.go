@@ -7,7 +7,6 @@ import (
 	"math/rand"
 	"os"
 	"strings"
-	"time"
 )
 
 type Metadata struct {
@@ -27,11 +26,6 @@ var commonEnglish string
 
 //go:embed embedables/sentences/frankenstein.json
 var frankensteinSentences string
-
-func init() {
-	seed := time.Now().UnixNano()
-	rand.Seed(seed)
-}
 
 type WordsGenerator struct {
 	Count     int
@@ -122,9 +116,15 @@ func NewGenerator(paths []string) (g WordsGenerator) {
 }
 
 func (this WordsGenerator) Generate(listName string) []rune {
+	switch listName {
+	case CodeSymbols:
+		return []rune(strings.Join(codeSymbols(this.Count), " "))
+	case WeakSpots:
+		return []rune(strings.Join(weighted(this.poolsJson["Common words"].Words, this.Count), " "))
+	}
+
 	pool := this.poolsJson[listName].Words
 
-	rand.Seed(time.Now().UnixNano())
 	rand.Shuffle(len(pool), func(i, j int) { pool[i], pool[j] = pool[j], pool[i] })
 
 	takeAmount := min(this.Count, len(pool))

@@ -29,14 +29,14 @@ var (
 var (
 	Version = "dev"
 	RootCmd = &cobra.Command{
-		Use:  "typioca",
-		Long: "typioca — cozy typing speed tester",
+		Use:  "typedeck",
+		Long: "typedeck — typioca with a memory: it keeps every key and drills your weak spots",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if showVersion {
-				fmt.Println("typioca ", Version)
+				fmt.Println("typedeck ", Version)
 				return nil
 			} else {
-				termenv.SetWindowTitle("typioca")
+				termenv.SetWindowTitle("typedeck")
 				defer println("bye!")
 
 				termWidth, termHeight, _ := term.GetSize(int(os.Stdin.Fd()))
@@ -50,7 +50,8 @@ var (
 					tea.WithAltScreen(),
 				)
 
-				return p.Start()
+				_, err := p.Run()
+				return err
 			}
 		},
 	}
@@ -112,7 +113,39 @@ var (
 	}
 )
 
+var importTitle, importStart = "", ""
+
+var importCmd = &cobra.Command{
+	Use:   "import <file | url | gutenberg number>...",
+	Short: "Add a book to type through",
+	Long:  "import cleans plain text (a file, a URL, or a Project Gutenberg ebook number) into a book.\nIt shows up in the timer run's word lists; every run starts at the bookmark.",
+	Args:  cobra.MinimumNArgs(1),
+	RunE: func(cmd *cobra.Command, args []string) error {
+		for _, src := range args {
+			book, err := ImportBook(src, importTitle, importStart)
+			if err != nil {
+				return err
+			}
+			fmt.Printf("%s (%s): %d characters, %d pages\n", book.Title, book.Author, book.Chars, book.Chars/bookPage+1)
+		}
+		return nil
+	},
+}
+
+var booksCmd = &cobra.Command{
+	Use:   "books",
+	Short: "List the books and how far you are",
+	Run: func(cmd *cobra.Command, args []string) {
+		for _, b := range Books() {
+			fmt.Println(b.show())
+		}
+	},
+}
+
 func init() {
+	importCmd.Flags().StringVarP(&importTitle, "title", "t", "", "title, when the text does not carry one")
+	importCmd.Flags().StringVarP(&importStart, "start", "s", "", "a phrase of the text: the book begins there, front matter is left out")
+	RootCmd.AddCommand(importCmd, booksCmd)
 	serveCmd.Flags().StringVarP(&serverKeyPath, "key", "k", "typioca", "path to the server key")
 	serveCmd.Flags().StringVarP(&serverBind, "bind", "b", "", "address to bind on")
 	serveCmd.Flags().IntVarP(&serverPort, "port", "p", 2229, "port to serve on")

@@ -132,6 +132,17 @@ func (s SentenceCountBasedTestSettings) Enabled() bool {
 	return s.enabled
 }
 
+type ProgressViewSelection struct{}
+
+func (s ProgressViewSelection) Enabled() bool {
+	return true
+}
+
+type ProgressView struct {
+	mainMenu MainMenu
+	runs     []runRecord
+}
+
 type ConfigViewSelection struct{}
 
 func (s ConfigViewSelection) Enabled() bool {

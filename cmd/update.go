@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"os"
+	"time"
 
 	"github.com/bloznelis/typioca/cmd/words"
 	"github.com/charmbracelet/bubbles/stopwatch"
@@ -9,6 +10,9 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/muesli/termenv"
 )
+
+// textReserve: a timer run grows its text when fewer than this many characters are left to type.
+const textReserve = 120
 
 func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	var commands []tea.Cmd
@@ -31,20 +35,40 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		// Cool, what was the actual key pressed?
 		switch msg.String() {
 
-		// These keys should exit the program.
-		case "ctrl+c", "esc":
+		case "ctrl+c":
 			return m, tea.Quit
+
+		// esc backs out one level; it only quits from the menu. It used to quit from anywhere, mid-run included.
+		case "esc":
+			if _, inMenu := m.state.(MainMenu); inMenu {
+				return m, tea.Quit
+			}
+			termenv.DefaultOutput().Reset()
+			if test, running := m.state.(TimerBasedTest); running && test.worthKeeping() {
+				m.state = test.finish(test.elapsed()) // stopping early keeps the run: result, keys, bookmark
+				return m, nil
+			}
+			m.state = initMainMenu()
+			return m, nil
 		}
 	}
 
 	switch state := m.state.(type) {
 	case MainMenu:
 		m.state = state.selections[state.cursor].handleInput(msg, state)
-		WriteConfig(state.config)
+		if _, isKey := msg.(tea.KeyMsg); isKey { // it was rewritten on EVERY message: ticks, resizes
+			WriteConfig(state.config)
+		}
 		return m.quitOn(msg, "ctrl+q")
 
 	case ConfigView:
 		m.state = state.handleInput(msg, state)
+		return m, nil
+
+	case ProgressView:
+		if key, isKey := msg.(tea.KeyMsg); isKey && key.String() == "ctrl+q" {
+			m.state = state.mainMenu
+		}
 		return m, nil
 
 	case TimerBasedTestResults:
@@ -77,17 +101,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if state.timer.timer.Timedout() {
 				termenv.DefaultOutput().Reset()
 				state.timer.timedout = true
-
-				var results = state.calculateResults()
-
-				PersistResults(results)
-
-				m.state = TimerBasedTestResults{
-					settings:      state.settings,
-					wpmEachSecond: state.base.wpmEachSecond,
-					results:       results,
-					mainMenu:      state.mainMenu,
-				}
+				m.state = state.finish(state.timer.duration)
 			}
 
 		case tea.KeyMsg:
@@ -95,6 +109,10 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			case "enter", "tab":
 
 			case "ctrl+q":
+				if state.worthKeeping() {
+					m.state = state.finish(state.elapsed())
+					return m, nil
+				}
 				m.state = state.mainMenu
 				return m, nil
 
@@ -124,6 +142,11 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					handleRunes(msg, &state.base, state.mainMenu.config.Layout.Mappings)
 					m.state = state
 				}
+			}
+			// the text used to simply end, and the next key indexed past it (panic)
+			if len(state.base.wordsToEnter)-len(state.base.inputBuffer) < textReserve {
+				state.base.wordsToEnter = append(state.base.wordsToEnter, timerText(state.settings, state.mainMenu, len(state.base.wordsToEnter))...)
+				m.state = state
 			}
 		}
 
@@ -195,6 +218,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			var results = state.calculateResults()
 
 			PersistResults(results)
+			coachFinish(results)
 
 			m.state = WordCountTestResults{
 				settings:      state.settings,
@@ -271,6 +295,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			var results = state.calculateResults()
 
 			PersistResults(results)
+			coachFinish(results)
 
 			m.state = SentenceCountTestResults{
 				settings:      state.settings,
@@ -285,6 +310,31 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	// Return the updated model to the Bubble Tea runtime for processing.
 	return m, tea.Batch(commands...)
+}
+
+func (state TimerBasedTest) elapsed() time.Duration {
+	return state.timer.duration - state.timer.timer.Timeout
+}
+
+// worthKeeping: a run stopped by hand counts once there is enough of it to measure.
+func (state TimerBasedTest) worthKeeping() bool {
+	return state.timer.isRunning && state.elapsed() >= 5*time.Second && len(state.base.inputBuffer) >= 10
+}
+
+// finish closes a timer run, on time or early: result, history, the coach's keys, the book's bookmark.
+func (state TimerBasedTest) finish(elapsed time.Duration) TimerBasedTestResults {
+	results := state.calculateResults(elapsed)
+	PersistResults(results)
+	coachFinish(results)
+	if slug, isBook := bookSlug(state.settings.wordListSelections[state.settings.wordListCursor].generatorKey); isBook {
+		results.wordList = bookAdvance(slug, len(state.base.inputBuffer)).brief()
+	}
+	return TimerBasedTestResults{
+		settings:      state.settings,
+		wpmEachSecond: state.base.wpmEachSecond,
+		results:       results,
+		mainMenu:      state.mainMenu,
+	}
 }
 
 func (m model) quitOn(msg tea.Msg, strokes ...string) (tea.Model, tea.Cmd) {
@@ -433,6 +483,28 @@ func (settings WordCountBasedTestSettings) handleInput(msg tea.Msg, menu MainMen
 
 	menu.config.TestSettingCursors.WordCountCursor = settings.wordCountCursor
 	menu.config.TestSettingCursors.WordCountWordlistCursor = settings.wordListCursor
+
+	return menu
+}
+
+func (selection ProgressViewSelection) handleInput(msg tea.Msg, menu MainMenu) State {
+	switch msg := msg.(type) {
+	case tea.KeyMsg:
+		switch msg.String() {
+		case "enter":
+			return ProgressView{mainMenu: menu, runs: readRuns()}
+		case "up", "k":
+			if menu.cursor > 0 {
+				menu.cursor--
+			}
+		case "down", "j":
+			if menu.cursor < len(menu.selections)-1 {
+				menu.cursor++
+			} else {
+				menu.cursor = 0
+			}
+		}
+	}
 
 	return menu
 }
@@ -718,15 +790,29 @@ func dropUntilWsIdx(input []rune, wsIdx int) []rune {
 	}
 }
 
+// Keys read from the terminal in one go arrive as ONE message. Upstream typed the last rune and dropped the rest:
+// on a slow machine a fast burst lost letters.
 func handleRunes(msg tea.KeyMsg, base *TestBase, remappedInput map[rune]rune) {
-	inputLetter := msg.Runes[len(msg.Runes)-1]
+	for _, r := range msg.Runes {
+		if r == ' ' {
+			handleSpace(base)
+		} else {
+			handleRune(r, base, remappedInput)
+		}
+	}
+}
 
+func handleRune(inputLetter rune, base *TestBase, remappedInput map[rune]rune) {
 	inputLenDec := len(base.inputBuffer)
+	if inputLenDec >= len(base.wordsToEnter) {
+		return
+	}
 	letterToInput := base.wordsToEnter[inputLenDec]
 
 	if r, ok := remappedInput[inputLetter]; ok {
 		inputLetter = r
 	}
+	coachRecord(inputLenDec, letterToInput, inputLetter, time.Now())
 
 	base.inputBuffer = append(base.inputBuffer, inputLetter)
 	base.rawInputCnt += 1
@@ -743,7 +829,8 @@ func handleRunes(msg tea.KeyMsg, base *TestBase, remappedInput map[rune]rune) {
 }
 
 func handleSpace(base *TestBase) {
-	if len(base.inputBuffer) > 0 {
+	if len(base.inputBuffer) > 0 && len(base.inputBuffer) < len(base.wordsToEnter) {
+		coachRecord(len(base.inputBuffer), base.wordsToEnter[len(base.inputBuffer)], ' ', time.Now())
 		base.inputBuffer = append(base.inputBuffer, ' ')
 		base.cursor = len(base.inputBuffer)
 		base.rawInputCnt += 1

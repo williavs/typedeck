@@ -3,9 +3,10 @@ package cmd
 import (
 	"math"
 	"strings"
+	"time"
 )
 
-func (m TimerBasedTest) calculateResults() Results {
+func (m TimerBasedTest) calculateResults(elapsed time.Duration) Results {
 	wordlist := m.settings.wordListSelections[m.settings.wordListCursor].name
 	identifier := ResultsIdentifier{
 		testType: "TimerBasedTest",
@@ -13,7 +14,7 @@ func (m TimerBasedTest) calculateResults() Results {
 		words:    wordlist,
 	}
 
-	elapsedMinutes := m.timer.duration.Minutes()
+	elapsedMinutes := elapsed.Minutes()
 	wpm := m.base.calculateNormalizedWpm(elapsedMinutes)
 	deltaWpm := calculateAverageWpmDeltaPercentage(wpm, ReadResults(identifier))
 
@@ -24,7 +25,7 @@ func (m TimerBasedTest) calculateResults() Results {
 		deltaWpm:      deltaWpm,
 		rawWpm:        int(m.base.calculateRawWpm(elapsedMinutes)),
 		cpm:           m.base.calculateCpm(elapsedMinutes),
-		time:          m.timer.duration,
+		time:          elapsed,
 		wordList:      wordlist,
 		wpmEachSecond: m.base.wpmEachSecond,
 	}
@@ -103,18 +104,18 @@ func calcPreviousResultsAvgWpm(previousResults []PersistentResultsNode) float64 
 }
 
 func (base TestBase) calculateNormalizedWpm(elapsedMinutes float64) float64 {
-	return base.calculateWpm(len(base.inputBuffer)/5, elapsedMinutes)
+	return base.calculateWpm(float64(len(base.inputBuffer))/5, elapsedMinutes) // was integer division: up to 2 wpm lost on a 30 s run
 }
 
 func (base TestBase) calculateRawWpm(elapsedMinutes float64) float64 {
-	return base.calculateWpm(len(strings.Split(string(base.inputBuffer), " ")), elapsedMinutes)
+	return base.calculateWpm(float64(len(strings.Split(string(base.inputBuffer), " "))), elapsedMinutes)
 }
 
-func (base TestBase) calculateWpm(wordCnt int, elapsedMinutes float64) float64 {
+func (base TestBase) calculateWpm(wordCnt float64, elapsedMinutes float64) float64 {
 	if elapsedMinutes == 0 {
 		return 0
 	} else {
-		grossWpm := float64(wordCnt) / elapsedMinutes
+		grossWpm := wordCnt / elapsedMinutes
 		netWpm := grossWpm - float64(len(base.mistakes.mistakesAt))/elapsedMinutes
 
 		return math.Max(0, netWpm)

@@ -12,7 +12,7 @@ import (
 	"github.com/kirsle/configdir"
 )
 
-const currentConfigVersion = 4
+const currentConfigVersion = 5 // 5: typedeck adds the generated lists
 
 func ReadConfig() Config {
 	var config Config
@@ -64,11 +64,6 @@ func checkSync(config *Config) {
 func WriteConfig(config Config) {
 	configFile := getSystemConfigPath()
 	words.EnsureDir(configFile)
-	fh, err := os.Create(configFile)
-	if err != nil {
-		panic(err)
-	}
-	defer fh.Close()
 
 	var acc []WordList
 	for _, elem := range config.WordLists {
@@ -78,13 +73,13 @@ func WriteConfig(config Config) {
 	}
 	config.WordLists = acc
 
-	encoder := json.NewEncoder(fh)
-	encoder.SetIndent("", "\t")
-	encoder.Encode(&config)
+	if err := writeJSONAtomic(configFile, &config); err != nil {
+		panic(err)
+	}
 }
 
 func getCachePath() string {
-	cachePath := configdir.LocalCache("typioca")
+	cachePath := configdir.LocalCache("typedeck")
 
 	err := configdir.MakePath(cachePath)
 	if err != nil {
@@ -95,11 +90,11 @@ func getCachePath() string {
 }
 
 func getSystemConfigPath() string {
-	return getConfigPath(configdir.LocalCache("typioca"))
+	return getConfigPath(configdir.LocalCache("typedeck"))
 }
 
 func getLocalConfigPath() string {
-	return getConfigPath(configdir.LocalConfig("typioca"))
+	return getConfigPath(configdir.LocalConfig("typedeck"))
 }
 
 func getConfigPath(configDir string) string {
@@ -133,8 +128,12 @@ func readLocalConfigFile(config *LocalConfig, configFile string) {
 
 	_, err = toml.DecodeFile(configFile, &config)
 
+	// It panicked here. With XDG_CACHE_HOME == XDG_CONFIG_HOME both config files are ONE path and the JSON one
+	// was fed to the TOML parser: dead at start. A local file that does not parse now costs only the local lists.
 	if err != nil {
-		panic(err)
+		fmt.Fprintln(os.Stderr, "typedeck: ignoring", configFile, err)
+		config.Words = nil
+		return
 	}
 
 	for idx := range config.Words {
@@ -240,6 +239,8 @@ func defaultConfig() Config {
 		Version:            currentConfigVersion,
 		EmbededWordLists: []EmbededWordList{
 			{"Common words", false, true},
+			{words.WeakSpots, false, true},
+			{words.CodeSymbols, false, true},
 			{"Frankenstein sentences", true, true},
 		},
 		WordLists: []WordList{

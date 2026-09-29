@@ -102,19 +102,12 @@ func (p *PersistentResults) addResults(results Results) {
 func writeResults(results PersistentResults) {
 	var resultsFilePath = getResultsPath()
 	words.EnsureDir(resultsFilePath)
-	fh, err := os.Create(resultsFilePath)
-	if err != nil {
+	if err := writeJSONAtomic(resultsFilePath, results); err != nil {
 		panic(err)
 	}
-	defer fh.Close()
-
-	encoder := json.NewEncoder(fh)
-	encoder.SetIndent("", "\t")
-	encoder.Encode(results)
 }
 
 func getResultsPath() string {
-	var cachePath = getCachePath()
-	var resultsFilePath = filepath.Join(cachePath, "results.json")
+	var resultsFilePath = filepath.Join(getDataPath(), "results.json") // history is data, not cache
 	return resultsFilePath
 }

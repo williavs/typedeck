@@ -140,3 +140,26 @@ Config example (it is [TOML](https://github.com/toml-lang/toml)):
 Built with [bubbletea](https://github.com/charmbracelet/bubbletea)
 
 🧋
+
+## typedeck (this fork)
+
+A fork of typioca for one typist who wants to get better over months, built to run on a 53 x 15 terminal
+(Pi Zero 2 W + 2.2" PiTFT) as well as a desktop. Same look, same keys. What changed:
+
+- **It remembers.** Every key of every run goes to `keys.csv` (expected, typed, milliseconds since the last key);
+  `coach.json` keeps a fading tally per key and per letter pair; `runs.jsonl` lists every run.
+  All of it lives in `~/.local/share/typedeck/` - upstream kept its history in `~/.cache`.
+- **Weak spots.** Every result names the worst keys and pairs with the reason (share missed, or how slow).
+  The `Weak spots` word list deals common words full of them. `Code symbols` drills digits and punctuation.
+- **Books.** `typedeck import <file | url | gutenberg number> [--start "first words"] [--title T]` cleans any plain
+  text into a book. It appears in the timer run's word lists, every run starts at the bookmark, `typedeck books`
+  and the Progress screen show how far you are.
+- **Nothing is lost.** Esc backs out one level instead of quitting the program; stopping a timer run early keeps
+  the result, the keys and the bookmark. Files are written beside the target and renamed over it.
+- **Bugs fixed:** keys arriving in one read were dropped except the last; typing past the end of a timer run's
+  text panicked; the config was rewritten to disk on every message in the menu; WPM was rounded down by integer
+  division; a config path collision (`XDG_CACHE_HOME == XDG_CONFIG_HOME`) panicked at start.
+- **Speed:** a frame drew all 300 words to show three lines. On the Pi Zero 2 W: 17.5 ms before, 0.41 ms after
+  (`go test ./cmd -bench Frame`).
+
+Tests: `go test ./...`. Pi build: `GOOS=linux GOARCH=arm GOARM=7 go build -o execs/typedeck-armv7 .`

@@ -87,7 +87,23 @@ func filterEnabledSelections(config Config) []WordsSelection {
 	return acc
 }
 
+// timerText is the text of a timer run from character `have` on: a book continues from its bookmark, a word list
+// deals more words.
+func timerText(settings TimerBasedTestSettings, mainMenu MainMenu, have int) []rune {
+	key := settings.wordListSelections[settings.wordListCursor].generatorKey
+	if slug, isBook := bookSlug(key); isBook {
+		book, _ := loadBook(slug)
+		return bookSlice(slug, book.Pos+have, bookChunk)
+	}
+	more := mainMenu.timeBasedGenerator.Generate(key)
+	if have > 0 {
+		more = append([]rune{' '}, more...)
+	}
+	return more
+}
+
 func initTimerBasedTest(settings TimerBasedTestSettings, mainMenu MainMenu) TimerBasedTest {
+	coachStart()
 	return TimerBasedTest{
 		settings: settings,
 		timer: myTimer{
@@ -97,7 +113,7 @@ func initTimerBasedTest(settings TimerBasedTestSettings, mainMenu MainMenu) Time
 			timedout:  false,
 		},
 		base: TestBase{
-			wordsToEnter: mainMenu.timeBasedGenerator.Generate(settings.wordListSelections[settings.wordListCursor].generatorKey),
+			wordsToEnter: timerText(settings, mainMenu, 0),
 			inputBuffer:  make([]rune, 0),
 			rawInputCnt:  0,
 			mistakes: mistakes{
@@ -112,6 +128,7 @@ func initTimerBasedTest(settings TimerBasedTestSettings, mainMenu MainMenu) Time
 }
 
 func initWordCountBasedTest(settings WordCountBasedTestSettings, mainMenu MainMenu) WordCountBasedTest {
+	coachStart()
 	mainMenu.wordCountGenerator.Count = settings.wordCountSelections[settings.wordCountCursor]
 	return WordCountBasedTest{
 		settings: settings,
@@ -135,6 +152,7 @@ func initWordCountBasedTest(settings WordCountBasedTestSettings, mainMenu MainMe
 }
 
 func initSentenceCountBasedTest(settings SentenceCountBasedTestSettings, mainMenu MainMenu) SentenceCountBasedTest {
+	coachStart()
 	mainMenu.sentenceCountGenerator.Count = settings.sentenceCountSelections[settings.sentenceCountCursor]
 	return SentenceCountBasedTest{
 		settings: settings,
@@ -221,7 +239,7 @@ func initConfigViewSelection() ConfigViewSelection {
 
 func initMainMenu() MainMenu {
 	config := ReadConfig()
-	timeBasedWordSelections := filterEnabledSelections(config)
+	timeBasedWordSelections := append(filterEnabledSelections(config), bookSelections()...)
 	countBasedWordSelections := filterEnabledWordSelection(config)
 	countBasedSentenceSelections := filterEnabledSentenceSelection(config)
 	return MainMenu{
@@ -230,6 +248,7 @@ func initMainMenu() MainMenu {
 			initTimerBasedTestSettings(config, timeBasedWordSelections),
 			initWordCountBasedTestSettings(config, countBasedWordSelections),
 			initSentenceCountBasedTestSettings(config, countBasedSentenceSelections),
+			ProgressViewSelection{},
 			initConfigViewSelection(),
 		},
 		cursor:                 0,
@@ -243,7 +262,7 @@ func paths(selections []WordsSelection) []string {
 	var acc []string
 	for _, elem := range selections {
 		// XXX: don't to this at home
-		if elem.generatorKey != elem.name {
+		if _, isBook := bookSlug(elem.generatorKey); elem.generatorKey != elem.name && !isBook {
 			acc = append(acc, elem.generatorKey)
 		}
 	}
