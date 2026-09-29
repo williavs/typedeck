@@ -146,6 +146,9 @@ Built with [bubbletea](https://github.com/charmbracelet/bubbletea)
 A fork of typioca for one typist who wants to get better over months, built to run on a 53 x 15 terminal
 (Pi Zero 2 W + 2.2" PiTFT) as well as a desktop. Same look, same keys. What changed:
 
+- **A home screen of its own.** One key continues the book at the bookmark. Below it: a 30 s drill on your weak
+  spots (named on the row), symbols, common words, your trend, and typioca's own menu under More.
+  The header counts your days in a row and the minutes typed today.
 - **It remembers.** Every key of every run goes to `keys.csv` (expected, typed, milliseconds since the last key);
   `coach.json` keeps a fading tally per key and per letter pair; `runs.jsonl` lists every run.
   All of it lives in `~/.local/share/typedeck/` - upstream kept its history in `~/.cache`.

@@ -38,9 +38,9 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "ctrl+c":
 			return m, tea.Quit
 
-		// esc backs out one level; it only quits from the menu. It used to quit from anywhere, mid-run included.
+		// esc backs out one level; it only quits from the home screen. It used to quit from anywhere, mid-run included.
 		case "esc":
-			if _, inMenu := m.state.(MainMenu); inMenu {
+			if _, atHome := m.state.(Home); atHome {
 				return m, tea.Quit
 			}
 			termenv.DefaultOutput().Reset()
@@ -48,12 +48,16 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.state = test.finish(test.elapsed()) // stopping early keeps the run: result, keys, bookmark
 				return m, nil
 			}
-			m.state = initMainMenu()
+			m.state = initHome()
 			return m, nil
 		}
 	}
 
 	switch state := m.state.(type) {
+	case Home:
+		m.state = state.handleInput(msg)
+		return m.quitOn(msg, "ctrl+q")
+
 	case MainMenu:
 		m.state = state.selections[state.cursor].handleInput(msg, state)
 		if _, isKey := msg.(tea.KeyMsg); isKey { // it was rewritten on EVERY message: ticks, resizes

@@ -34,6 +34,7 @@ type Book struct {
 	Runs    int
 	Typed   int   // characters typed in this book, all laps
 	Started int64 // unix seconds of the import
+	Last    int64 // unix seconds of the last run in it: the home screen offers that book first
 }
 
 func booksDir() string {
@@ -152,7 +153,7 @@ func ImportBook(src, title, start string) (Book, error) {
 	book := Book{Title: title, Author: author, Source: src, Chars: chars, Started: time.Now().Unix(),
 		Slug: strings.Trim(notSlug.ReplaceAllString(strings.ToLower(title), "-"), "-")}
 	if old, ok := loadBook(book.Slug); ok {
-		book.Pos, book.Laps, book.Runs, book.Typed, book.Started = old.Pos%chars, old.Laps, old.Runs, old.Typed, old.Started
+		book.Pos, book.Laps, book.Runs, book.Typed, book.Started, book.Last = old.Pos%chars, old.Laps, old.Runs, old.Typed, old.Started, old.Last
 	}
 	if err := os.WriteFile(filepath.Join(booksDir(), book.Slug+".txt"), []byte(text), 0o644); err != nil {
 		return Book{}, err
@@ -222,6 +223,7 @@ func bookAdvance(slug string, typed int) Book {
 	b.Pos += typed
 	b.Typed += typed
 	b.Runs++
+	b.Last = time.Now().Unix()
 	b.Laps += b.Pos / b.Chars
 	b.Pos %= b.Chars
 	if err := saveBook(b); err != nil {

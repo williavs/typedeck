@@ -80,6 +80,9 @@ func (m model) View() string {
 	lineLenLimit = int(math.Min(float64(maxLineLen), math.Max(float64(minLineLen), float64(reactiveLimit))))
 
 	switch state := m.state.(type) {
+	case Home:
+		return m.homeView(state)
+
 	case MainMenu:
 		typioca := style("  typedeck", m.styles.faintGreen)
 		typioca = lipgloss.NewStyle().PaddingBottom(1).Render(typioca)
@@ -474,7 +477,7 @@ func (m model) progressView(state ProgressView) string {
 		height = 3
 	}
 	block := lipgloss.JoinVertical(lipgloss.Center,
-		fmt.Sprintf("Progress  %s runs", style(strconv.Itoa(len(runs)), m.styles.greener)),
+		"Progress  "+style(plural(len(runs), "run"), m.styles.greener),
 		plotWpms(plot, min(40, m.width-10), height, 0), trend, coachPanel(m.styles), m.bookLines(3), style("esc menu", m.styles.toEnter))
 	return lipgloss.Place(m.width, m.height, lipgloss.Center, lipgloss.Center, block)
 }

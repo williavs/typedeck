@@ -15,7 +15,7 @@ func midRunModel(tb testing.TB) model {
 	os.Setenv("XDG_CONFIG_HOME", dir+"/config")
 	os.Setenv("XDG_DATA_HOME", dir+"/data")
 	m := initialModel(termenv.ANSI256, termenv.ANSIWhite, 53, 15)
-	menu := m.state.(MainMenu)
+	menu := m.state.(Home).menu
 	test := initTimerBasedTest(menu.selections[0].(TimerBasedTestSettings), menu)
 	for i := 0; i < 400; i++ { // 400 keys in, every 20th one wrong
 		r := test.base.wordsToEnter[i]

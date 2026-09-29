@@ -334,3 +334,64 @@ func TestAccuracyOfNothingIsNotNaN(t *testing.T) {
 		t.Fatalf("accuracy with no keys = %v", got)
 	}
 }
+
+func TestHomeIsBuiltAroundTheTypist(t *testing.T) {
+	dir := freshHome(t)
+	bookTexts = map[string][]rune{}
+	h := initHome()
+	if h.items[0] != homeWeak || len(h.items) != 5 {
+		t.Fatalf("no book yet: the screen opens on the drills, got %v", h.items)
+	}
+	src := filepath.Join(dir, "tiny.txt")
+	os.WriteFile(src, []byte(tinyBook), 0o644)
+	ImportBook(src, "", "")
+	ImportBook(src, "Second Book", "")
+	bookAdvance("second-book", 40)
+
+	h = initHome()
+	if h.items[0] != homeBook || h.books[0].Slug != "second-book" {
+		t.Fatalf("the book typed in last comes first: %v %v", h.items, h.books[0].Slug)
+	}
+	enter := tea.KeyMsg{Type: tea.KeyEnter}
+	run, ok := h.handleInput(enter).(TimerBasedTest) // ONE key from a cold start
+	if !ok || run.book == nil || run.book.Slug != "second-book" || run.timer.duration != untimed {
+		t.Fatalf("enter must continue the book: %+v", run.book)
+	}
+	if got := string(run.base.wordsToEnter[:12]); got != string(bookText("second-book")[run.book.Pos:run.book.Pos+12]) {
+		t.Fatalf("not at the bookmark: %q", got)
+	}
+
+	next := h.handleInput(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("l")}).(Home)
+	if next.books[next.book].Slug != "tiny-book" {
+		t.Fatalf("right on the book row picks the other book, got %q", next.books[next.book].Slug)
+	}
+	down := next.handleInput(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("j")}).(Home)
+	drill, ok := down.handleInput(enter).(TimerBasedTest)
+	if !ok || drill.book != nil || drill.timer.duration != drillTime ||
+		drill.settings.wordListSelections[drill.settings.wordListCursor].generatorKey != words.WeakSpots {
+		t.Fatalf("second row is the 30 s weak-spot drill: %+v", drill.settings)
+	}
+	if _, ok := initHome().menu.selections[0].(TimerBasedTestSettings); !ok {
+		t.Fatal("More still holds typioca's menu")
+	}
+}
+
+func TestHabitCountsDaysInARow(t *testing.T) {
+	now := time.Date(2026, 9, 29, 15, 0, 0, 0, time.Local)
+	at := func(daysAgo int, secs float64) runRecord {
+		return runRecord{At: now.AddDate(0, 0, -daysAgo).Unix(), Secs: secs}
+	}
+	minutes, streak := habit([]runRecord{at(4, 60), at(2, 60), at(1, 60), at(0, 90), at(0, 150)}, now)
+	if minutes != 4 || streak != 3 {
+		t.Fatalf("today 1.5 + 2.5 min, and 3 days in a row: got %.1f min, %d days", minutes, streak)
+	}
+	if _, streak = habit([]runRecord{at(2, 60), at(1, 60)}, now); streak != 2 {
+		t.Fatalf("nothing typed yet today does not break the streak: %d", streak)
+	}
+	if _, streak = habit([]runRecord{at(3, 60)}, now); streak != 0 {
+		t.Fatalf("a gap of two days ends it: %d", streak)
+	}
+	if got := bar(0.001, 16); !strings.HasPrefix(got, "█░") || len([]rune(got)) != 16 {
+		t.Fatalf("any progress shows one block: %q", got)
+	}
+}

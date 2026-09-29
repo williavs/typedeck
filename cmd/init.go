@@ -293,7 +293,7 @@ func initialModel(profile termenv.Profile, fore termenv.Color, width, height int
 	return model{
 		width:  width,
 		height: height,
-		state:  initMainMenu(),
+		state:  initHome(),
 		styles: Styles{
 			correct: func(str string) termenv.Style {
 				return termenv.String(str).Foreground(fore)
