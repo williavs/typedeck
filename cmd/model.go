@@ -168,6 +168,7 @@ type TestBase struct {
 }
 
 type TimerBasedTest struct {
+	book      *Book // set = a book run: untimed, ends on esc, shows how far into the book you are
 	settings  TimerBasedTestSettings
 	timer     myTimer
 	base      TestBase

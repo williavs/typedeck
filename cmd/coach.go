@@ -66,6 +66,8 @@ var (
 	run   struct {
 		strokes []stroke
 		last    time.Time
+		active  time.Duration // time spent typing: every gap between keys, a pause counts as coachPauseMs at most
+		plotted time.Duration // `active` when the speed curve got its last point
 	}
 )
 
@@ -132,14 +134,18 @@ func getCoach() *coachData {
 	return coach
 }
 
-func coachStart() { run.strokes = run.strokes[:0]; run.last = time.Time{} }
+func coachStart() {
+	run.strokes, run.last, run.active, run.plotted = run.strokes[:0], time.Time{}, 0, 0
+}
 
 func coachRecord(pos int, exp, got rune, now time.Time) {
 	ms := 0
 	if !run.last.IsZero() {
-		if gap := now.Sub(run.last).Milliseconds(); gap < coachPauseMs {
-			ms = int(gap)
+		gap := now.Sub(run.last)
+		if gap.Milliseconds() < coachPauseMs {
+			ms = int(gap.Milliseconds())
 		}
+		run.active += min(gap, coachPauseMs*time.Millisecond)
 	}
 	run.last = now
 	run.strokes = append(run.strokes, stroke{Pos: pos, Exp: exp, Got: got, Ms: ms})

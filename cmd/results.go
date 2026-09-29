@@ -127,6 +127,9 @@ func (base TestBase) calculateCpm(elapsedMinutes float64) int {
 }
 
 func (base TestBase) calculateAccuracy() float64 {
+	if base.rawInputCnt == 0 { // 0/0 = NaN, which JSON cannot hold: upstream then wrote an empty results file
+		return 0
+	}
 	mistakesRate := float64(base.mistakes.rawMistakesCnt*100) / float64(base.rawInputCnt)
 	accuracy := 100 - mistakesRate
 	return accuracy

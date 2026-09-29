@@ -91,8 +91,9 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			state.timer.timer = timerUpdate
 			commands = append(commands, cmdUpdate)
 
-			elapsedMinutes := state.timer.duration.Minutes() - state.timer.timer.Timeout.Minutes()
-			if elapsedMinutes != 0 {
+			// a book run adds a point only for a second that had typing in it: no flat tail for a coffee break
+			if elapsedMinutes := state.elapsed().Minutes(); elapsedMinutes != 0 && (state.book == nil || run.active != run.plotted) {
+				run.plotted = run.active
 				state.base.wpmEachSecond = append(state.base.wpmEachSecond, state.base.calculateNormalizedWpm(elapsedMinutes))
 			}
 
@@ -312,7 +313,11 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return m, tea.Batch(commands...)
 }
 
+// elapsed is the time the speed is measured over: the clock for a timed run, the time spent typing for a book.
 func (state TimerBasedTest) elapsed() time.Duration {
+	if state.book != nil {
+		return run.active
+	}
 	return state.timer.duration - state.timer.timer.Timeout
 }
 
@@ -326,8 +331,8 @@ func (state TimerBasedTest) finish(elapsed time.Duration) TimerBasedTestResults 
 	results := state.calculateResults(elapsed)
 	PersistResults(results)
 	coachFinish(results)
-	if slug, isBook := bookSlug(state.settings.wordListSelections[state.settings.wordListCursor].generatorKey); isBook {
-		results.wordList = bookAdvance(slug, len(state.base.inputBuffer)).brief()
+	if state.book != nil {
+		results.wordList = bookAdvance(state.book.Slug, len(state.base.inputBuffer)).brief()
 	}
 	return TimerBasedTestResults{
 		settings:      state.settings,

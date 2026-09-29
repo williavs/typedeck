@@ -238,11 +238,17 @@ func (m model) View() string {
 		s = m.progressView(state)
 
 	case TimerBasedTest:
+		clock := state.timer.timer.View()
+		if state.book != nil { // no countdown: how far into the book, moving as you type
+			at := *state.book
+			at.Pos = (at.Pos + len(state.base.inputBuffer)) % at.Chars
+			clock = at.progress()
+		}
 		var coloredTimer string
 		if state.timer.isRunning {
-			coloredTimer = style(state.timer.timer.View(), m.styles.runningTimer)
+			coloredTimer = style(clock, m.styles.runningTimer)
 		} else {
-			coloredTimer = style(state.timer.timer.View(), m.styles.stoppedTimer)
+			coloredTimer = style(clock, m.styles.stoppedTimer)
 		}
 
 		linesAroundCursor, avgLineLen := state.base.window(lineLenLimit, m.styles)
@@ -253,7 +259,7 @@ func (m model) View() string {
 
 		if !state.timer.isRunning {
 			s += "\n\n\n"
-			s += lipgloss.PlaceHorizontal(termWidth, lipgloss.Center, style("ctrl+r restart, esc menu", m.styles.toEnter))
+			s += lipgloss.PlaceHorizontal(termWidth, lipgloss.Center, style(hint(state.book != nil), m.styles.toEnter))
 		}
 
 	case WordCountBasedTest:
@@ -338,7 +344,11 @@ func (selection TimerBasedTestSettings) show(styles Styles) string {
 		wordListSelection = "no wordlist enabled"
 	}
 
-	selections := []string{selection.timeSelections[selection.timeCursor].String(), wordListSelection}
+	timeSelection := selection.timeSelections[selection.timeCursor].String()
+	if selection.book() != nil {
+		timeSelection = "untimed"
+	}
+	selections := []string{timeSelection, wordListSelection}
 	selectionsStr := showSelections(selections, selection.cursor, styles)
 	return fmt.Sprintf("%s %s", label("Timer run", "Timer"), selectionsStr)
 }

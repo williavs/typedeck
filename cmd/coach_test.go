@@ -11,6 +11,7 @@ import (
 
 	"github.com/bloznelis/typioca/cmd/words"
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/muesli/termenv"
 )
 
 func freshHome(t *testing.T) string {
@@ -271,5 +272,65 @@ func TestABurstOfKeysIsNotDropped(t *testing.T) {
 	handleRunes(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("he is")}, &base, nil) // upstream kept only the "s"
 	if string(base.inputBuffer) != "he is" || len(base.mistakes.mistakesAt) != 0 {
 		t.Fatalf("buffer %q mistakes %v", string(base.inputBuffer), base.mistakes.mistakesAt)
+	}
+}
+
+func TestBookRunIsUntimedAndMeasuredOverTypingTime(t *testing.T) {
+	dir := freshHome(t)
+	bookTexts = map[string][]rune{}
+	src := filepath.Join(dir, "tiny.txt")
+	os.WriteFile(src, []byte(tinyBook), 0o644)
+	if _, err := ImportBook(src, "", ""); err != nil {
+		t.Fatal(err)
+	}
+	menu := initMainMenu()
+	settings := menu.selections[0].(TimerBasedTestSettings)
+	for i, sel := range settings.wordListSelections {
+		if sel.generatorKey == "book:tiny-book" {
+			settings.wordListCursor = i
+		}
+	}
+	if shown := dropAnsiCodes(settings.show(Styles{greener: plainStyle, runningTimer: plainStyle})); !strings.Contains(shown, "[untimed] [Tiny Book]") {
+		t.Fatalf("menu line %q", shown)
+	}
+	test := initTimerBasedTest(settings, menu)
+	if test.book == nil || test.timer.duration != untimed {
+		t.Fatalf("book %v duration %v", test.book, test.timer.duration)
+	}
+
+	now := time.Unix(5000, 0)
+	text := test.base.wordsToEnter
+	for i := 0; i < 60; i++ { // 60 keys, 200 ms apart, with one 10 minute break in the middle
+		gap := 200 * time.Millisecond
+		if i == 30 {
+			gap = 10 * time.Minute
+		}
+		now = now.Add(gap)
+		coachRecord(i, text[i], text[i], now)
+		test.base.inputBuffer = append(test.base.inputBuffer, text[i])
+		test.base.rawInputCnt++
+	}
+	test.timer.isRunning = true
+	// 58 gaps of 0.2 s + the break counted as 2 s = 13.6 s of typing
+	if got := test.elapsed(); got != 13600*time.Millisecond {
+		t.Fatalf("typing time %v, want 13.6s", got)
+	}
+	if !test.worthKeeping() {
+		t.Fatal("13 s and 60 keys is a run worth keeping")
+	}
+	done := test.finish(test.elapsed())
+	if done.results.wpm < 50 || done.results.wpm > 54 { // 60 chars = 12 words in 13.6 s = 52.9 wpm
+		t.Fatalf("wpm %d, want 52", done.results.wpm)
+	}
+	if b, _ := loadBook("tiny-book"); b.Pos == 0 || b.Pos > 60 || b.Runs != 1 {
+		t.Fatalf("bookmark %+v", b)
+	}
+}
+
+func plainStyle(s string) termenv.Style { return termenv.String(s) }
+
+func TestAccuracyOfNothingIsNotNaN(t *testing.T) {
+	if got := (TestBase{}).calculateAccuracy(); got != 0 {
+		t.Fatalf("accuracy with no keys = %v", got)
 	}
 }

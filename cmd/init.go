@@ -102,13 +102,33 @@ func timerText(settings TimerBasedTestSettings, mainMenu MainMenu, have int) []r
 	return more
 }
 
+// untimed is the timer of a book run: it only supplies the once-a-second tick.
+const untimed = 24 * time.Hour
+
+func (settings TimerBasedTestSettings) book() *Book {
+	if !settings.enabled {
+		return nil
+	}
+	if slug, isBook := bookSlug(settings.wordListSelections[settings.wordListCursor].generatorKey); isBook {
+		if b, ok := loadBook(slug); ok {
+			return &b
+		}
+	}
+	return nil
+}
+
 func initTimerBasedTest(settings TimerBasedTestSettings, mainMenu MainMenu) TimerBasedTest {
 	coachStart()
+	duration, book := settings.timeSelections[settings.timeCursor], settings.book()
+	if book != nil {
+		duration = untimed
+	}
 	return TimerBasedTest{
+		book:     book,
 		settings: settings,
 		timer: myTimer{
-			timer:     timer.NewWithInterval(settings.timeSelections[settings.timeCursor], time.Second),
-			duration:  settings.timeSelections[settings.timeCursor],
+			timer:     timer.NewWithInterval(duration, time.Second),
+			duration:  duration,
 			isRunning: false,
 			timedout:  false,
 		},

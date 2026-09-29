@@ -230,7 +230,19 @@ func bookAdvance(slug string, typed int) Book {
 	return b
 }
 
-// brief fits under a result on the deck's 53 columns: "The Sun Also Rises 1.42% p4/240"
+// progress: "1.42%  page 4 of 240"
+func (b Book) progress() string {
+	return fmt.Sprintf("%.2f%%  page %d of %d", 100*float64(b.Pos)/float64(b.Chars), b.Pos/bookPage+1, b.Chars/bookPage+1)
+}
+
+func hint(bookRun bool) string {
+	if bookRun {
+		return "type. esc stops and saves"
+	}
+	return "ctrl+r restart, esc menu"
+}
+
+// brief fits under a result on the deck's 45 columns: "The Sun Also Rises 1.42% p4/240"
 func (b Book) brief() string {
 	return fmt.Sprintf("%s %.2f%% p%d/%d", shorten(b.Title, 22), 100*float64(b.Pos)/float64(b.Chars), b.Pos/bookPage+1, b.Chars/bookPage+1)
 }
