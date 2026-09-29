@@ -2,7 +2,6 @@ package words
 
 import (
 	"fmt"
-	"math"
 	"math/rand"
 	"sort"
 	"strings"
@@ -17,25 +16,40 @@ const (
 // Weigh scores a word by how hard it works the typist's weak spots. The coach sets it; nil = every word is equal.
 var Weigh func(word string) float64
 
-// weighted draws count words without replacement, heavier words first more often (Efraimidis-Spirakis).
+// focusShare of a weak-spot drill comes from the words that hit a weak key or pair; the rest keeps it reading
+// like language. Measured 09-28: weighting alone barely moved the mix (3 z in 200 words with z the worst key),
+// because few words carry a rare letter. So the focus words are drawn WITH replacement and repeat.
+const focusShare = 0.7
+
+// weighted deals count words: focus words in proportion to their weight, the rest at random.
 func weighted(pool []string, count int) []string {
-	type pick struct {
-		word string
-		key  float64
+	if len(pool) == 0 {
+		return nil
 	}
-	picks := make([]pick, len(pool))
-	for i, w := range pool {
-		weight := 1.0
-		if Weigh != nil {
-			weight = math.Max(Weigh(w), 0.01)
+	var focus []string
+	var upTo []float64 // running total of the focus weights
+	total := 0.0
+	for _, w := range pool {
+		if Weigh == nil {
+			break
 		}
-		picks[i] = pick{w, math.Pow(rand.Float64(), 1/weight)}
+		if extra := Weigh(w) - 1; extra > 0 {
+			total += extra
+			focus = append(focus, w)
+			upTo = append(upTo, total)
+		}
 	}
-	sort.Slice(picks, func(a, b int) bool { return picks[a].key > picks[b].key })
 
 	out := make([]string, 0, count)
-	for i := 0; i < count && i < len(picks); i++ {
-		out = append(out, picks[i].word)
+	for len(out) < count {
+		word := pool[rand.Intn(len(pool))]
+		if len(focus) > 0 && rand.Float64() < focusShare {
+			word = focus[sort.SearchFloat64s(upTo, rand.Float64()*total)]
+		}
+		if n := len(out); n > 0 && out[n-1] == word && len(pool) > 1 {
+			continue // never the same word twice in a row
+		}
+		out = append(out, word)
 	}
 	return out
 }

@@ -167,17 +167,28 @@ func TestGeneratedLists(t *testing.T) {
 	for i := 0; i < 6; i++ {
 		c.absorb(typeText("zip zap zoo buzz fizz jazz", "z", ""))
 	}
+	g.Count = 300
+	drill := strings.Fields(string(g.Generate(words.WeakSpots)))
 	withZ := 0
-	for i := 0; i < 20; i++ {
-		g.Count = 10
-		withZ += strings.Count(string(g.Generate(words.WeakSpots)), "z")
+	for i, w := range drill {
+		if strings.Contains(w, "z") {
+			withZ++
+		}
+		if i > 0 && drill[i-1] == w {
+			t.Fatalf("%q twice in a row", w)
+		}
 	}
+	plain := strings.Fields(string(g.Generate("Common words")))
 	plainZ := 0
-	for i := 0; i < 20; i++ {
-		plainZ += strings.Count(string(g.Generate("Common words")), "z")
+	for _, w := range plain {
+		if strings.Contains(w, "z") {
+			plainZ++
+		}
 	}
-	if withZ <= 3*plainZ {
-		t.Fatalf("weak list should be full of z: weak %d vs common %d", withZ, plainZ)
+	// z is the worst key. Common words has a handful of z words, and none may follow itself, so the drill
+	// alternates them with other words: measured 111-119 of 300, against 0-1 of 300 in plain common words.
+	if len(drill) != 300 || withZ < 90 || plainZ > 10 {
+		t.Fatalf("weak drill: %d of %d words carry z; common words: %d of %d", withZ, len(drill), plainZ, len(plain))
 	}
 }
 
