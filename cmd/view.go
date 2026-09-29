@@ -15,6 +15,17 @@ import (
 )
 
 var lineLenLimit int
+
+// narrow: under 52 columns (the deck's panel is 45 x 15) labels are shortened so nothing runs off the edge.
+var narrow bool
+
+func label(long, short string) string {
+	if narrow {
+		return short
+	}
+	return long
+}
+
 var minLineLen int = 5
 var maxLineLen int = 40
 var resultsStyle = lipgloss.NewStyle().
@@ -63,6 +74,7 @@ func (m model) View() string {
 	var s string
 
 	termWidth, termHeight := m.width, m.height
+	narrow = termWidth < 52
 
 	reactiveLimit := (termWidth * 6) / 10
 	lineLenLimit = int(math.Min(float64(maxLineLen), math.Max(float64(minLineLen), float64(reactiveLimit))))
@@ -328,7 +340,7 @@ func (selection TimerBasedTestSettings) show(styles Styles) string {
 
 	selections := []string{selection.timeSelections[selection.timeCursor].String(), wordListSelection}
 	selectionsStr := showSelections(selections, selection.cursor, styles)
-	return fmt.Sprintf("%s %s", "Timer run", selectionsStr)
+	return fmt.Sprintf("%s %s", label("Timer run", "Timer"), selectionsStr)
 }
 
 func (selection WordCountBasedTestSettings) show(styles Styles) string {
@@ -341,7 +353,7 @@ func (selection WordCountBasedTestSettings) show(styles Styles) string {
 
 	selections := []string{fmt.Sprint(selection.wordCountSelections[selection.wordCountCursor]), wordListSelection}
 	selectionsStr := showSelections(selections, selection.cursor, styles)
-	return fmt.Sprintf("%s %s", "Word count run", selectionsStr)
+	return fmt.Sprintf("%s %s", label("Word count run", "Words"), selectionsStr)
 }
 
 func (selection SentenceCountBasedTestSettings) show(styles Styles) string {
@@ -353,7 +365,7 @@ func (selection SentenceCountBasedTestSettings) show(styles Styles) string {
 	}
 	selections := []string{fmt.Sprint(selection.sentenceCountSelections[selection.sentenceCountCursor]), wordListSelection}
 	selectionsStr := showSelections(selections, selection.cursor, styles)
-	return fmt.Sprintf("%s %s", "Sentence count run", selectionsStr)
+	return fmt.Sprintf("%s %s", label("Sentence count run", "Sentences"), selectionsStr)
 }
 
 func (selection ProgressViewSelection) show(styles Styles) string {
@@ -398,10 +410,13 @@ func style(str string, style StringStyle) string {
 func (m model) resultsView(r Results, wpmEachSecond []float64, wordsLabel string) string {
 	wpm := "wpm: " + style(strconv.Itoa(r.wpm), m.styles.runningTimer)
 	stats := fmt.Sprintf("%s %s %s %s",
-		"accuracy: "+style(fmt.Sprintf("%.1f", r.accuracy), m.styles.greener),
-		"Δavg: "+style(fmt.Sprintf("%s%.2f%%", plusIfPositive(r.deltaWpm), math.Min(r.deltaWpm, 100.0)), m.styles.greener),
+		label("accuracy: ", "acc: ")+style(fmt.Sprintf("%.1f", r.accuracy), m.styles.greener),
+		label("Δavg: ", "Δ: ")+style(fmt.Sprintf("%s%.0f%%", plusIfPositive(r.deltaWpm), math.Min(r.deltaWpm, 100.0)), m.styles.greener),
 		"raw: "+style(strconv.Itoa(r.rawWpm), m.styles.greener),
-		"time: "+style(r.time.Round(100*time.Millisecond).String(), m.styles.greener))
+		label("time: ", "")+style(r.time.Round(time.Second).String(), m.styles.greener))
+	if narrow {
+		wordsLabel = ""
+	}
 	wordsLine := wordsLabel + style(r.wordList, m.styles.greener)
 	help := style("enter again, esc menu", m.styles.toEnter)
 	plotData := append(append([]float64{}, wpmEachSecond...), float64(r.wpm))
@@ -431,7 +446,7 @@ func (m model) progressView(state ProgressView) string {
 		}
 	}
 	wpm, acc := avgRuns(recent)
-	trend := fmt.Sprintf("last %d: %s wpm %s%%", len(recent), style(fmt.Sprintf("%.0f", wpm), m.styles.runningTimer), style(fmt.Sprintf("%.1f", acc), m.styles.greener))
+	trend := fmt.Sprintf(label("last %d: %s wpm %s%%", "%d: %s wpm %s%%"), len(recent), style(fmt.Sprintf("%.0f", wpm), m.styles.runningTimer), style(fmt.Sprintf("%.1f", acc), m.styles.greener))
 	if len(before) > 0 {
 		bWpm, bAcc := avgRuns(before)
 		trend += fmt.Sprintf("  before: %s wpm %s%%", style(fmt.Sprintf("%.0f", bWpm), m.styles.greener), style(fmt.Sprintf("%.1f", bAcc), m.styles.greener))
@@ -450,7 +465,7 @@ func (m model) progressView(state ProgressView) string {
 	}
 	block := lipgloss.JoinVertical(lipgloss.Center,
 		fmt.Sprintf("Progress  %s runs", style(strconv.Itoa(len(runs)), m.styles.greener)),
-		plotWpms(plot, 40, height, 0), trend, coachPanel(m.styles), m.bookLines(3), style("esc menu", m.styles.toEnter))
+		plotWpms(plot, min(40, m.width-10), height, 0), trend, coachPanel(m.styles), m.bookLines(3), style("esc menu", m.styles.toEnter))
 	return lipgloss.Place(m.width, m.height, lipgloss.Center, lipgloss.Center, block)
 }
 

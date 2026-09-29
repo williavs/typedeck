@@ -235,15 +235,15 @@ func (b Book) brief() string {
 	return fmt.Sprintf("%s %.2f%% p%d/%d", shorten(b.Title, 22), 100*float64(b.Pos)/float64(b.Chars), b.Pos/bookPage+1, b.Chars/bookPage+1)
 }
 
-// show: "The Sun Also Rises  1.42%  page 4/240  ~90 days"; the days come from the pace since the import.
+// show: "The Sun Also Rises 1.42% p4/240 ~90d"; the days left come from the pace since the import.
 func (b Book) show() string {
-	line := fmt.Sprintf("%s  %.2f%%  page %d/%d", shorten(b.Title, 22), 100*float64(b.Pos)/float64(b.Chars), b.Pos/bookPage+1, b.Chars/bookPage+1)
+	line := fmt.Sprintf("%s %.2f%% p%d/%d", shorten(b.Title, 20), 100*float64(b.Pos)/float64(b.Chars), b.Pos/bookPage+1, b.Chars/bookPage+1)
 	days := float64(time.Now().Unix()-b.Started)/86400 + 1
 	if perDay := float64(b.Typed) / days; perDay > 0 {
-		line += fmt.Sprintf("  ~%.0f days", float64(b.Chars-b.Pos)/perDay)
+		line += fmt.Sprintf(" ~%.0fd", float64(b.Chars-b.Pos)/perDay)
 	}
 	if b.Laps > 0 {
-		line += fmt.Sprintf("  done x%d", b.Laps)
+		line += fmt.Sprintf(" x%d", b.Laps)
 	}
 	return line
 }
