@@ -177,7 +177,8 @@ func (m model) homeView(h Home) string {
 	} else {
 		lines = append(lines,
 			faint("  no book on this machine yet. in a shell:"),
-			faint("  typedeck import 67138    (a file, a url or a gutenberg number)"),
+			faint("  typedeck import 67138"),
+			faint("  (a file, a url or a gutenberg number)"),
 			"")
 	}
 
