@@ -15,6 +15,7 @@ import (
 	"sort"
 	"strings"
 	"time"
+	"unicode"
 )
 
 const (
@@ -51,7 +52,52 @@ var (
 	headerField    = regexp.MustCompile(`(?m)^(Title|Author): (.+)$`)
 	bracketNote    = regexp.MustCompile(`\[(Illustration|Transcriber|Footnote)[^\]]*\]`)
 	notSlug        = regexp.MustCompile(`[^a-z0-9]+`)
+	chapterOne     = regexp.MustCompile(`(?mi)^[ \t]*(chapter|book|part)[ \t]+(one|i|1)\b[^\n]*$`)
 )
+
+// skipFrontMatter: the book starts at its first chapter heading, or failing that at its first prose paragraph;
+// never at the title page, the copyright lines or the contents.
+// ponytail: the LAST "Chapter One" line in the first 15% is the heading, an earlier one is the contents entry.
+func skipFrontMatter(raw string) string {
+	limit := len(raw) * 15 / 100
+	if all := chapterOne.FindAllStringIndex(raw[:limit], -1); len(all) > 0 {
+		return raw[all[len(all)-1][0]:]
+	}
+	at := 0
+	for _, para := range strings.SplitAfter(raw, "\n\n") {
+		if at > limit {
+			return raw
+		}
+		if !looksLikeFrontMatter(para) {
+			return raw[at:]
+		}
+		at += len(para)
+	}
+	return raw
+}
+
+// A title, an author line, a publisher, a copyright or first-published note: capitals, or a short line with no
+// sentence in it.
+func looksLikeFrontMatter(para string) bool {
+	para = strings.TrimSpace(para)
+	lower := strings.ToLower(para)
+	if para == "" || strings.Contains(lower, "copyright") || strings.Contains(lower, "published") || strings.Contains(lower, "printed") {
+		return true
+	}
+	upper, letters := 0, 0
+	for _, r := range para {
+		if unicode.IsLetter(r) {
+			letters++
+			if unicode.IsUpper(r) {
+				upper++
+			}
+		}
+	}
+	if letters > 0 && upper*10 > letters*7 {
+		return true
+	}
+	return len(para) < 120 && !strings.ContainsAny(para, ".!?")
+}
 
 // Everything a keyboard cannot type is folded to what it can, the rest is dropped.
 var typeable = strings.NewReplacer(
@@ -83,6 +129,7 @@ func cleanBook(raw string) (title, author, text string) {
 			}
 		}
 	}
+	raw = skipFrontMatter(raw)
 	raw = typeable.Replace(bracketNote.ReplaceAllString(raw, ""))
 	raw = strings.ReplaceAll(raw, "_", "") // _italics_
 

@@ -26,6 +26,9 @@ A fork of typioca for one typist who wants to get better over months, built to r
   All of it lives in `~/.local/share/typedeck/` - upstream kept its history in `~/.cache`.
 - **Weak spots.** Every result names the worst keys and pairs with the reason (share missed, or how slow).
   The `Weak spots` word list deals common words full of them. `Code symbols` drills digits and punctuation.
+- **Find a book.** The first run opens on it: Project Gutenberg's whole English catalog (61,748 books, 72
+  categories, the month's most-read on top), narrowed as you type, enter adds the book. The catalog is fetched
+  once a month (21 MB); `typedeck catalog` fetches it now. A book starts at its first chapter, not the title page.
 - **Books.** `typedeck import <file | url | gutenberg number> [--start "first words"] [--title T]` cleans any plain
   text into a book. It appears in the timer run's word lists, every run starts at the bookmark, `typedeck books`
   and the Progress screen show how far you are.

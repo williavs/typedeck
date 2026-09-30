@@ -20,6 +20,7 @@ type homeItem int
 
 const (
 	homeBook homeItem = iota
+	homeFind
 	homeWeak
 	homeSymbols
 	homeWords
@@ -42,7 +43,7 @@ func initHome() Home {
 	if len(h.books) > 0 {
 		h.items = append(h.items, homeBook)
 	}
-	h.items = append(h.items, homeWeak, homeSymbols, homeWords, homeProgress, homeMore)
+	h.items = append(h.items, homeFind, homeWeak, homeSymbols, homeWords, homeProgress, homeMore)
 	return h
 }
 
@@ -69,10 +70,10 @@ func (h Home) drill(listKey string, length time.Duration) State {
 	return initTimerBasedTest(settings, h.menu)
 }
 
-func (h Home) handleInput(msg tea.Msg) State {
+func (h Home) handleInput(msg tea.Msg) (State, tea.Cmd) {
 	key, isKey := msg.(tea.KeyMsg)
 	if !isKey {
-		return h
+		return h, nil
 	}
 	onBook := h.items[h.cursor] == homeBook
 	switch key.String() {
@@ -91,20 +92,22 @@ func (h Home) handleInput(msg tea.Msg) State {
 	case "enter", " ":
 		switch h.items[h.cursor] {
 		case homeBook:
-			return h.drill(bookKeyPrefix+h.books[h.book].Slug, 0)
+			return h.drill(bookKeyPrefix+h.books[h.book].Slug, 0), nil
+		case homeFind:
+			return initFinder()
 		case homeWeak:
-			return h.drill(words.WeakSpots, drillTime)
+			return h.drill(words.WeakSpots, drillTime), nil
 		case homeSymbols:
-			return h.drill(words.CodeSymbols, drillTime)
+			return h.drill(words.CodeSymbols, drillTime), nil
 		case homeWords:
-			return h.drill("Common words", drillTime)
+			return h.drill("Common words", drillTime), nil
 		case homeProgress:
-			return ProgressView{mainMenu: h.menu, runs: h.runs}
+			return ProgressView{mainMenu: h.menu, runs: h.runs}, nil
 		case homeMore:
-			return h.menu
+			return h.menu, nil
 		}
 	}
-	return h
+	return h, nil
 }
 
 func day(unix int64) string { return time.Unix(unix, 0).Local().Format("2006-01-02") }
@@ -172,15 +175,13 @@ func (m model) homeView(h Home) string {
 		}
 		lines = append(lines,
 			row(homeBook, title, style(fmt.Sprintf("%.2f%%", 100*share), s.runningTimer)),
-			"  "+style(bar(share, 16), s.greener)+faint(fmt.Sprintf(" page %d of %d", b.Pos/bookPage+1, b.Chars/bookPage+1)),
-			"")
-	} else {
-		lines = append(lines,
-			faint("  no book on this machine yet. in a shell:"),
-			faint("  typedeck import 67138"),
-			faint("  (a file, a url or a gutenberg number)"),
-			"")
+			"  "+style(bar(share, 16), s.greener)+faint(fmt.Sprintf(" page %d of %d", b.Pos/bookPage+1, b.Chars/bookPage+1)))
 	}
+	findHint := "Gutenberg, by category"
+	if len(h.books) == 0 {
+		findHint = "no book on this machine yet"
+	}
+	lines = append(lines, row(homeFind, "Find a book", faint(findHint)), "")
 
 	c := getCoach()
 	var spots []string

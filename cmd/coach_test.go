@@ -339,8 +339,11 @@ func TestHomeIsBuiltAroundTheTypist(t *testing.T) {
 	dir := freshHome(t)
 	bookTexts = map[string][]rune{}
 	h := initHome()
-	if h.items[0] != homeWeak || len(h.items) != 5 {
-		t.Fatalf("no book yet: the screen opens on the drills, got %v", h.items)
+	if h.items[0] != homeFind || len(h.items) != 6 {
+		t.Fatalf("no book yet: the screen opens on Find a book, got %v", h.items)
+	}
+	if _, finding := stateOf(h.handleInput(tea.KeyMsg{Type: tea.KeyEnter})).(Finder); !finding {
+		t.Fatal("enter on Find a book must open the finder")
 	}
 	src := filepath.Join(dir, "tiny.txt")
 	os.WriteFile(src, []byte(tinyBook), 0o644)
@@ -353,7 +356,7 @@ func TestHomeIsBuiltAroundTheTypist(t *testing.T) {
 		t.Fatalf("the book typed in last comes first: %v %v", h.items, h.books[0].Slug)
 	}
 	enter := tea.KeyMsg{Type: tea.KeyEnter}
-	run, ok := h.handleInput(enter).(TimerBasedTest) // ONE key from a cold start
+	run, ok := stateOf(h.handleInput(enter)).(TimerBasedTest) // ONE key from a cold start
 	if !ok || run.book == nil || run.book.Slug != "second-book" || run.timer.duration != untimed {
 		t.Fatalf("enter must continue the book: %+v", run.book)
 	}
@@ -361,15 +364,16 @@ func TestHomeIsBuiltAroundTheTypist(t *testing.T) {
 		t.Fatalf("not at the bookmark: %q", got)
 	}
 
-	next := h.handleInput(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("l")}).(Home)
+	next := stateOf(h.handleInput(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("l")})).(Home)
 	if next.books[next.book].Slug != "tiny-book" {
 		t.Fatalf("right on the book row picks the other book, got %q", next.books[next.book].Slug)
 	}
-	down := next.handleInput(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("j")}).(Home)
-	drill, ok := down.handleInput(enter).(TimerBasedTest)
+	j := tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("j")}
+	down := stateOf(stateOf(next.handleInput(j)).(Home).handleInput(j)).(Home) // past Find a book
+	drill, ok := stateOf(down.handleInput(enter)).(TimerBasedTest)
 	if !ok || drill.book != nil || drill.timer.duration != drillTime ||
 		drill.settings.wordListSelections[drill.settings.wordListCursor].generatorKey != words.WeakSpots {
-		t.Fatalf("second row is the 30 s weak-spot drill: %+v", drill.settings)
+		t.Fatalf("third row is the 30 s weak-spot drill: %+v", drill.settings)
 	}
 	if _, ok := initHome().menu.selections[0].(TimerBasedTestSettings); !ok {
 		t.Fatal("More still holds typioca's menu")
@@ -395,3 +399,5 @@ func TestHabitCountsDaysInARow(t *testing.T) {
 		t.Fatalf("any progress shows one block: %q", got)
 	}
 }
+
+func stateOf(s State, _ tea.Cmd) State { return s }

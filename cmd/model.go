@@ -42,10 +42,11 @@ type Styles struct {
 }
 
 type model struct {
-	state  State
-	styles Styles
-	width  int
-	height int
+	state    State
+	styles   Styles
+	width    int
+	height   int
+	startCmd tea.Cmd // fired by Init: the finder's catalog load on a first run
 }
 
 type Results struct {

@@ -43,6 +43,12 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if _, atHome := m.state.(Home); atHome {
 				return m, tea.Quit
 			}
+			if f, finding := m.state.(Finder); finding {
+				if back, stepped := f.back(); stepped {
+					m.state = back
+					return m, nil
+				}
+			}
 			termenv.DefaultOutput().Reset()
 			if test, running := m.state.(TimerBasedTest); running && test.worthKeeping() {
 				m.state = test.finish(test.elapsed()) // stopping early keeps the run: result, keys, bookmark
@@ -55,8 +61,16 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	switch state := m.state.(type) {
 	case Home:
-		m.state = state.handleInput(msg)
+		var cmd tea.Cmd
+		if m.state, cmd = state.handleInput(msg); cmd != nil {
+			return m, cmd
+		}
 		return m.quitOn(msg, "ctrl+q")
+
+	case Finder:
+		var cmd tea.Cmd
+		m.state, cmd = state.handle(msg)
+		return m, cmd
 
 	case MainMenu:
 		m.state = state.selections[state.cursor].handleInput(msg, state)

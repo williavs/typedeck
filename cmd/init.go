@@ -11,7 +11,7 @@ import (
 )
 
 func (m model) Init() tea.Cmd {
-	return nil
+	return m.startCmd
 }
 
 // todo: clean these up. Maybe we could reuse filtering by enabled and synce, because now it's redundant
@@ -290,10 +290,16 @@ func paths(selections []WordsSelection) []string {
 }
 
 func initialModel(profile termenv.Profile, fore termenv.Color, width, height int) model {
+	var state State = initHome()
+	var startCmd tea.Cmd
+	if len(Books()) == 0 { // first run: nothing to track yet, go find a book
+		state, startCmd = initFinder()
+	}
 	return model{
-		width:  width,
-		height: height,
-		state:  initHome(),
+		width:    width,
+		height:   height,
+		state:    state,
+		startCmd: startCmd,
 		styles: Styles{
 			correct: func(str string) termenv.Style {
 				return termenv.String(str).Foreground(fore)

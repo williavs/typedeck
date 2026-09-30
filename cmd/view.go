@@ -83,6 +83,9 @@ func (m model) View() string {
 	case Home:
 		return m.homeView(state)
 
+	case Finder:
+		return m.finderView(state)
+
 	case MainMenu:
 		typioca := style("  typedeck", m.styles.faintGreen)
 		typioca = lipgloss.NewStyle().PaddingBottom(1).Render(typioca)

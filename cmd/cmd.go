@@ -142,10 +142,23 @@ var booksCmd = &cobra.Command{
 	},
 }
 
+var catalogCmd = &cobra.Command{
+	Use:   "catalog",
+	Short: "Download Gutenberg's catalog now (the finder does it by itself once a month)",
+	RunE: func(cmd *cobra.Command, args []string) error {
+		cat, err := FetchCatalog()
+		if err != nil {
+			return err
+		}
+		fmt.Printf("%d English books, %d categories, %d ranked\n", len(cat.Entries), len(cat.Cats), cat.count(catPopular))
+		return nil
+	},
+}
+
 func init() {
 	importCmd.Flags().StringVarP(&importTitle, "title", "t", "", "title, when the text does not carry one")
 	importCmd.Flags().StringVarP(&importStart, "start", "s", "", "a phrase of the text: the book begins there, front matter is left out")
-	RootCmd.AddCommand(importCmd, booksCmd)
+	RootCmd.AddCommand(importCmd, booksCmd, catalogCmd)
 	serveCmd.Flags().StringVarP(&serverKeyPath, "key", "k", "typioca", "path to the server key")
 	serveCmd.Flags().StringVarP(&serverBind, "bind", "b", "", "address to bind on")
 	serveCmd.Flags().IntVarP(&serverPort, "port", "p", 2229, "port to serve on")
