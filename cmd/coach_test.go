@@ -9,9 +9,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/williavs/typedeck/cmd/words"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/muesli/termenv"
+	"github.com/williavs/typedeck/cmd/words"
 )
 
 func freshHome(t *testing.T) string {

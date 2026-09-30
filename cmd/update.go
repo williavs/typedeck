@@ -4,11 +4,11 @@ import (
 	"os"
 	"time"
 
-	"github.com/williavs/typedeck/cmd/words"
 	"github.com/charmbracelet/bubbles/stopwatch"
 	"github.com/charmbracelet/bubbles/timer"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/muesli/termenv"
+	"github.com/williavs/typedeck/cmd/words"
 )
 
 // textReserve: a timer run grows its text when fewer than this many characters are left to type.

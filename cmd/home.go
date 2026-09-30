@@ -9,9 +9,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/williavs/typedeck/cmd/words"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
+	"github.com/williavs/typedeck/cmd/words"
 )
 
 const drillTime = 30 * time.Second
@@ -173,6 +173,11 @@ func (m model) homeView(h Home) string {
 		lines = append(lines,
 			row(homeBook, title, style(fmt.Sprintf("%.2f%%", 100*share), s.runningTimer)),
 			"  "+style(bar(share, 16), s.greener)+faint(fmt.Sprintf(" page %d of %d", b.Pos/bookPage+1, b.Chars/bookPage+1)),
+			"")
+	} else {
+		lines = append(lines,
+			faint("  no book on this machine yet. in a shell:"),
+			faint("  typedeck import 67138    (a file, a url or a gutenberg number)"),
 			"")
 	}
 

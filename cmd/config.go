@@ -8,8 +8,8 @@ import (
 	"path/filepath"
 
 	"github.com/BurntSushi/toml"
-	"github.com/williavs/typedeck/cmd/words"
 	"github.com/kirsle/configdir"
+	"github.com/williavs/typedeck/cmd/words"
 )
 
 const currentConfigVersion = 5 // 5: typedeck adds the generated lists
