@@ -1,4 +1,4 @@
-module github.com/bloznelis/typioca
+module github.com/williavs/typedeck
 
 go 1.22.1
 

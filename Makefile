@@ -12,9 +12,9 @@ else
 endif
 
 GO_FLAGS   ?=
-NAME       := typioca
+NAME       := typedeck
 OUTPUT_BIN ?= execs/$(NAME)$(ARCH)$(EXT)
-PACKAGE    := github.com/bloznelis/$(NAME)
+PACKAGE    := github.com/williavs/$(NAME)
 GIT_REV     = $(shell git rev-parse --short HEAD)
 VERSION     = $(shell git describe --abbrev=0 --tags)
 
@@ -37,7 +37,7 @@ build-linux-amd:  ## Builds the linux-amd64 CLI
 
 build:  ## Builds the CLI
 	@go build -trimpath ${GO_FLAGS} \
-	-ldflags "-w -s -X 'github.com/bloznelis/typioca/cmd.Version=${VERSION}'" \
+	-ldflags "-w -s -X 'github.com/williavs/typedeck/cmd.Version=${VERSION}'" \
 	-a -tags netgo -o ${OUTPUT_BIN}
 
 build-all: build-win-amd build-win-arm build-mac-amd build-mac-arm build-linux-amd ## Builds execs for all architectures

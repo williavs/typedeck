@@ -17,7 +17,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/bloznelis/typioca/cmd/words"
+	"github.com/williavs/typedeck/cmd/words"
 )
 
 const (

@@ -8,7 +8,7 @@ import (
 	"path/filepath"
 
 	"github.com/BurntSushi/toml"
-	"github.com/bloznelis/typioca/cmd/words"
+	"github.com/williavs/typedeck/cmd/words"
 	"github.com/kirsle/configdir"
 )
 

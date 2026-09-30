@@ -5,7 +5,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/bloznelis/typioca/cmd/words"
+	"github.com/williavs/typedeck/cmd/words"
 )
 
 type TestType = string

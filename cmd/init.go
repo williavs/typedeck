@@ -3,7 +3,7 @@ package cmd
 import (
 	"time"
 
-	"github.com/bloznelis/typioca/cmd/words"
+	"github.com/williavs/typedeck/cmd/words"
 	"github.com/charmbracelet/bubbles/stopwatch"
 	"github.com/charmbracelet/bubbles/timer"
 	tea "github.com/charmbracelet/bubbletea"

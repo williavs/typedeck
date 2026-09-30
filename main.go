@@ -3,7 +3,7 @@ package main
 import (
 	"log"
 
-	"github.com/bloznelis/typioca/cmd"
+	"github.com/williavs/typedeck/cmd"
 )
 
 func main() {

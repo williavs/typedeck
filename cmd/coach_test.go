@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/bloznelis/typioca/cmd/words"
+	"github.com/williavs/typedeck/cmd/words"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/muesli/termenv"
 )
