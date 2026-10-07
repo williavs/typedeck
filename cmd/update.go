@@ -778,6 +778,7 @@ func (results SentenceCountTestResults) handleInput(msg tea.Msg, state State) St
 }
 
 func handleBackspace(base *TestBase) {
+	base.struck.push('\b', false)
 	base.inputBuffer = dropLastRune(base.inputBuffer)
 
 	//Delete mistakes
@@ -836,6 +837,7 @@ func handleRune(inputLetter rune, base *TestBase, remappedInput map[rune]rune) {
 		inputLetter = r
 	}
 	coachRecord(inputLenDec, letterToInput, inputLetter, time.Now())
+	base.struck.push(inputLetter, letterToInput != inputLetter)
 
 	base.inputBuffer = append(base.inputBuffer, inputLetter)
 	base.rawInputCnt += 1
@@ -854,6 +856,7 @@ func handleRune(inputLetter rune, base *TestBase, remappedInput map[rune]rune) {
 func handleSpace(base *TestBase) {
 	if len(base.inputBuffer) > 0 && len(base.inputBuffer) < len(base.wordsToEnter) {
 		coachRecord(len(base.inputBuffer), base.wordsToEnter[len(base.inputBuffer)], ' ', time.Now())
+		base.struck.push(' ', base.wordsToEnter[len(base.inputBuffer)] != ' ')
 		base.inputBuffer = append(base.inputBuffer, ' ')
 		base.cursor = len(base.inputBuffer)
 		base.rawInputCnt += 1
