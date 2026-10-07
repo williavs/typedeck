@@ -29,10 +29,6 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, nil
 		}
 
-	case keyDimMsg:
-		m.state = withKeylight(m.state, func(k *keylight) { k.dim(msg) })
-		return m, nil
-
 	// Is it a key press?
 	case tea.KeyMsg:
 
@@ -329,10 +325,6 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 		}
 
-	}
-
-	if _, pressed := msg.(tea.KeyMsg); pressed { // the key light goes out on its own
-		m.state = withKeylight(m.state, func(k *keylight) { commands = append(commands, k.dimLater()) })
 	}
 
 	// Return the updated model to the Bubble Tea runtime for processing.
