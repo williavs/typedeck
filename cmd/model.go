@@ -166,7 +166,7 @@ type TestBase struct {
 	rawInputCnt   int // Should not be reduced
 	mistakes      mistakes
 	cursor        int
-	struck        keystrip // what the fingers just did, for the strip above the text
+	struck        keylight // lights above the text for an instant on every key
 }
 
 type TimerBasedTest struct {

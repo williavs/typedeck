@@ -29,6 +29,10 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, nil
 		}
 
+	case keyDimMsg:
+		m.state = withKeylight(m.state, func(k *keylight) { k.dim(msg) })
+		return m, nil
+
 	// Is it a key press?
 	case tea.KeyMsg:
 
@@ -325,6 +329,10 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 		}
 
+	}
+
+	if _, pressed := msg.(tea.KeyMsg); pressed { // the key light goes out on its own
+		m.state = withKeylight(m.state, func(k *keylight) { commands = append(commands, k.dimLater()) })
 	}
 
 	// Return the updated model to the Bubble Tea runtime for processing.
@@ -778,7 +786,7 @@ func (results SentenceCountTestResults) handleInput(msg tea.Msg, state State) St
 }
 
 func handleBackspace(base *TestBase) {
-	base.struck.push('\b', false)
+	base.struck.on('\b', false)
 	base.inputBuffer = dropLastRune(base.inputBuffer)
 
 	//Delete mistakes
@@ -837,7 +845,7 @@ func handleRune(inputLetter rune, base *TestBase, remappedInput map[rune]rune) {
 		inputLetter = r
 	}
 	coachRecord(inputLenDec, letterToInput, inputLetter, time.Now())
-	base.struck.push(inputLetter, letterToInput != inputLetter)
+	base.struck.on(inputLetter, letterToInput != inputLetter)
 
 	base.inputBuffer = append(base.inputBuffer, inputLetter)
 	base.rawInputCnt += 1
@@ -856,7 +864,7 @@ func handleRune(inputLetter rune, base *TestBase, remappedInput map[rune]rune) {
 func handleSpace(base *TestBase) {
 	if len(base.inputBuffer) > 0 && len(base.inputBuffer) < len(base.wordsToEnter) {
 		coachRecord(len(base.inputBuffer), base.wordsToEnter[len(base.inputBuffer)], ' ', time.Now())
-		base.struck.push(' ', base.wordsToEnter[len(base.inputBuffer)] != ' ')
+		base.struck.on(' ', base.wordsToEnter[len(base.inputBuffer)] != ' ')
 		base.inputBuffer = append(base.inputBuffer, ' ')
 		base.cursor = len(base.inputBuffer)
 		base.rawInputCnt += 1

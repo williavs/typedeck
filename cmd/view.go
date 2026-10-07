@@ -261,7 +261,7 @@ func (m model) View() string {
 		s += positionVerticaly(termHeight)
 		indentBy := uint(math.Max(0, float64(termWidth/2-avgLineLen/2)))
 
-		s += m.indent(state.base.struck.View(m.styles), indentBy) + "\n\n" + m.indent(coloredTimer, indentBy) + "\n\n" + m.indent(linesAroundCursor, indentBy)
+		s += m.indent(state.base.struck.View(), indentBy) + "\n\n" + m.indent(coloredTimer, indentBy) + "\n\n" + m.indent(linesAroundCursor, indentBy)
 
 		if !state.timer.isRunning {
 			s += "\n\n\n"
@@ -280,7 +280,7 @@ func (m model) View() string {
 		s += positionVerticaly(termHeight)
 		indentBy := uint(math.Max(0, float64(termWidth/2-avgLineLen/2)))
 
-		s += m.indent(state.base.struck.View(m.styles), indentBy) + "\n\n" + m.indent(coloredStopwatch, indentBy) + "\n\n" + m.indent(linesAroundCursor, indentBy)
+		s += m.indent(state.base.struck.View(), indentBy) + "\n\n" + m.indent(coloredStopwatch, indentBy) + "\n\n" + m.indent(linesAroundCursor, indentBy)
 
 		if !state.stopwatch.isRunning {
 			s += "\n\n\n"
@@ -299,7 +299,7 @@ func (m model) View() string {
 		indentBy := uint(math.Max(0, float64(termWidth/2-avgLineLen/2)))
 
 		s += positionVerticaly(termHeight)
-		s += m.indent(state.base.struck.View(m.styles), indentBy) + "\n\n" + m.indent(coloredStopwatch, indentBy) + "\n\n" + m.indent(linesAroundCursor, indentBy)
+		s += m.indent(state.base.struck.View(), indentBy) + "\n\n" + m.indent(coloredStopwatch, indentBy) + "\n\n" + m.indent(linesAroundCursor, indentBy)
 
 		if !state.stopwatch.isRunning {
 			s += "\n\n\n"
