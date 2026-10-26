@@ -43,7 +43,7 @@ var (
 				p := tea.NewProgram(
 					initialModel(
 						termenv.ColorProfile(),
-						termenv.ForegroundColor(),
+						nil, // terminal default fg: follows live OSC 10 recolours (pitft deck F4), a sampled RGB would not
 						termWidth,
 						termHeight,
 					),
