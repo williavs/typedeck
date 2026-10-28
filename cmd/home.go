@@ -142,10 +142,12 @@ func bar(share float64, width int) string {
 }
 
 func (m model) homeView(h Home) string {
-	width := min(m.width-4, 46)
+	width := min(m.width-2, 46)
 	s := m.styles
 	faint := func(t string) string { return style(t, s.toEnter) }
+	// a row is the item on the left and its hint on the right; the hint gives way when the window is narrow
 	row := func(item homeItem, left, right string) string {
+		right = fit(right, width-3-lipgloss.Width(left))
 		gap := width - 2 - lipgloss.Width(left) - lipgloss.Width(right)
 		line := left + strings.Repeat(" ", max(gap, 1)) + right
 		if h.items[h.cursor] == item {
@@ -160,9 +162,9 @@ func (m model) homeView(h Home) string {
 	case len(h.runs) == 0:
 		head += faint("  first run")
 	case streak > 1:
-		head += faint(fmt.Sprintf("  %d days in a row, %.0f min today", streak, minutes))
+		head += faint(fmt.Sprintf(label("  %d days in a row, %.0f min today", "  %d days, %.0f min"), streak, minutes))
 	default:
-		head += faint(fmt.Sprintf("  %.0f min today, %s", minutes, plural(len(h.runs), "run")))
+		head += faint(fmt.Sprintf(label("  %.0f min today, %s", "  %.0f min, %s"), minutes, plural(len(h.runs), "run")))
 	}
 
 	lines := []string{head, ""}
@@ -173,11 +175,12 @@ func (m model) homeView(h Home) string {
 		if len(h.books) > 1 {
 			title += faint(fmt.Sprintf("  %d/%d", h.book+1, len(h.books)))
 		}
+		page := fmt.Sprintf(label(" page %d of %d", " p%d/%d"), b.Pos/bookPage+1, b.Chars/bookPage+1)
 		lines = append(lines,
 			row(homeBook, title, style(fmt.Sprintf("%.2f%%", 100*share), s.runningTimer)),
-			"  "+style(bar(share, 16), s.greener)+faint(fmt.Sprintf(" page %d of %d", b.Pos/bookPage+1, b.Chars/bookPage+1)))
+			"  "+style(bar(share, min(16, width-2-len(page))), s.greener)+faint(page))
 	}
-	findHint := "Gutenberg, by category"
+	findHint := label("Gutenberg, by category", "Gutenberg")
 	if len(h.books) == 0 {
 		findHint = "no book on this machine yet"
 	}

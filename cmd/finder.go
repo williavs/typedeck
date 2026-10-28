@@ -297,7 +297,7 @@ func (f Finder) choose() (State, tea.Cmd) {
 }
 
 func (m model) finderView(f Finder) string {
-	width := min(m.width-4, finderWidth)
+	width := min(m.width-2, finderWidth)
 	body := []string{f.headerLine(width), f.input.View()}
 	if status := f.statusLine(width); status != "" {
 		body = append(body, "", status)

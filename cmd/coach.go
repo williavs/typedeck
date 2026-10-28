@@ -17,6 +17,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/charmbracelet/lipgloss"
 	"github.com/williavs/typedeck/cmd/words"
 )
 
@@ -321,7 +322,8 @@ func showSpot(w weakSpot, base float64) string {
 
 // coachPanel is the two lines under every result: the worst keys and the worst pairs, each with its reason
 // (share missed, or how slow).
-func coachPanel(styles Styles) string {
+// coachPanel lists the weakest keys and pairs, as many as fit in width columns.
+func coachPanel(styles Styles, width int) string {
 	c := getCoach()
 	var msSum, msN float64
 	for _, t := range c.Keys {
@@ -336,13 +338,20 @@ func coachPanel(styles Styles) string {
 		if len(spots) == 0 {
 			return label + style("none yet", styles.toEnter)
 		}
-		var parts []string
-		for _, w := range spots {
-			parts = append(parts, style(showSpot(w, base), styles.greener))
+		out := label
+		for i, w := range spots {
+			part := showSpot(w, base)
+			if i > 0 {
+				part = "  " + part
+			}
+			if lipgloss.Width(out)+lipgloss.Width(part) > width {
+				break
+			}
+			out += style(part, styles.greener)
 		}
-		return label + strings.Join(parts, "  ")
+		return out
 	}
-	return line("weak keys: ", weak(c.Keys, 4)) + "\n" + line("weak pairs: ", weak(c.Pairs, 3))
+	return line(label("weak keys: ", "keys: "), weak(c.Keys, 4)) + "\n" + line(label("weak pairs: ", "pairs: "), weak(c.Pairs, 3))
 }
 
 func avgRuns(runs []runRecord) (wpm, acc float64) {

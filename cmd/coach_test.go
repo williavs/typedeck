@@ -136,7 +136,7 @@ func TestWindowShowsThreeLinesAroundTheCursor(t *testing.T) {
 	m := midRunModel(t)
 	test := m.state.(TimerBasedTest)
 	plain := func(styled string) string { return dropAnsiCodes(styled) }
-	view, _ := test.base.window(31, m.styles)
+	view, _ := test.base.window(31, 3, m.styles)
 	lines := strings.Split(plain(view), "\n")
 	if len(lines) != 3 {
 		t.Fatalf("%d lines:\n%s", len(lines), plain(view))

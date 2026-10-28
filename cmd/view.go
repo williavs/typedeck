@@ -10,13 +10,14 @@ import (
 	"time"
 
 	"github.com/charmbracelet/lipgloss"
+	"github.com/charmbracelet/x/ansi"
 	"github.com/guptarohit/asciigraph"
 	"github.com/muesli/reflow/indent"
 )
 
 var lineLenLimit int
 
-// narrow: under 52 columns (the deck's panel is 45 x 15) labels are shortened so nothing runs off the edge.
+// narrow: under 52 columns (the deck's panel is 34 x 20) labels are shortened so nothing runs off the edge.
 var narrow bool
 
 func label(long, short string) string {
@@ -24,6 +25,19 @@ func label(long, short string) string {
 		return short
 	}
 	return long
+}
+
+// fit cuts a line, colours and all, to n columns.
+func fit(s string, n int) string {
+	return ansi.Truncate(s, max(n, 0), "~")
+}
+
+// listName keeps a word list's name short enough for its menu line on a narrow window.
+func listName(name string) string {
+	if narrow {
+		return shorten(name, 12)
+	}
+	return name
 }
 
 var minLineLen int = 5
@@ -77,6 +91,9 @@ func (m model) View() string {
 	narrow = termWidth < 52
 
 	reactiveLimit := (termWidth * 6) / 10
+	if narrow {
+		reactiveLimit = termWidth - 4
+	}
 	lineLenLimit = int(math.Min(float64(maxLineLen), math.Max(float64(minLineLen), float64(reactiveLimit))))
 
 	switch state := m.state.(type) {
@@ -112,11 +129,24 @@ func (m model) View() string {
 		absolutePad := longestStringLen(names(state.config.WordLists)) + 2
 		var view string
 		sectionMaxAmountToShow := m.height / 7
+		compact := narrow || termHeight < 30 // typioca's padded layout needs 28 rows
+		// compact: no blank line under the headers, names cut to the room left, and the two scrolling lists share
+		// whatever height is left after everything else
+		gap, help := "\n\n", "s sync/delete, e enable/disable, esc to menu"
+		name := func(n string) string { return n }
+		if compact {
+			absolutePad = min(absolutePad, termWidth-12)
+			sectionMaxAmountToShow = max(1, (termHeight-9-len(state.config.EmbededWordLists))/2-1)
+			gap, help = "\n", "s sync, e on/off, esc menu"
+			name = func(n string) string { return shorten(n, absolutePad-1) }
+		}
 
-		header := "Config\n\n"
-		view += header
+		view += "Config" + gap
 
-		wordlistHeader := fmt.Sprintf("%s%*s%s/%s\n\n", "  wordlist", absolutePad-11, " ", "synced", "enabled")
+		wordlistHeader := fmt.Sprintf("%s%*s%s/%s"+gap, "  wordlist", absolutePad-11, " ", "synced", "enabled")
+		if compact {
+			wordlistHeader = fmt.Sprintf("  %-*s%s\n", absolutePad, "wordlist", "sync on")
+		}
 		view += wordlistHeader
 
 		accumulatedLength := len(state.config.EmbededWordLists)
@@ -129,8 +159,8 @@ func (m model) View() string {
 			}
 			enabled = style(enabled, m.styles.greener)
 
-			toPad := absolutePad - len(elem.Name)
-			line := fmt.Sprintf("%s%*s     [%s] ", style(elem.Name, m.styles.greener), toPad, "", enabled)
+			toPad := absolutePad - len(name(elem.Name))
+			line := fmt.Sprintf("%s%*s     [%s] ", style(name(elem.Name), m.styles.greener), toPad, "", enabled)
 
 			view += wrapWithCursor(idx == state.cursor, line, m.styles.runningTimer)
 			view += "\n"
@@ -169,8 +199,8 @@ func (m model) View() string {
 					enabled = style(enabled, m.styles.toEnter)
 				}
 
-				toPad := absolutePad - len(elem.Name)
-				line := fmt.Sprintf("%s%*s[%s]  [%s] ", style(elem.Name, m.styles.greener), toPad, "", synced, enabled)
+				toPad := absolutePad - len(name(elem.Name))
+				line := fmt.Sprintf("%s%*s[%s]  [%s] ", style(name(elem.Name), m.styles.greener), toPad, "", synced, enabled)
 				if !elem.syncOK {
 					line = style(dropAnsiCodes(line), m.styles.mistakes)
 				}
@@ -184,8 +214,12 @@ func (m model) View() string {
 		view += "\n"
 		accumulatedLength += len(state.config.WordLists)
 
-		view += "\n"
-		layoutListHeader := fmt.Sprintf("%s%*s%s/%s\n\n", "  layouts", absolutePad-11, " ", "synced", "enabled")
+		layoutListHeader := fmt.Sprintf("%s%*s%s/%s"+gap, "  layouts", absolutePad-11, " ", "synced", "enabled")
+		if compact {
+			layoutListHeader = fmt.Sprintf("  %-*s%s\n", absolutePad, "layouts", "sync on")
+		} else {
+			view += "\n"
+		}
 		view += layoutListHeader
 		view += renderSelectionWindow(
 			sectionMaxAmountToShow,
@@ -208,11 +242,11 @@ func (m model) View() string {
 					enabled = " "
 				}
 
-				toPad := absolutePad - len(elem.Name)
-				line := fmt.Sprintf("%s%*s[%s]  [%s] ", style(elem.Name, m.styles.greener), toPad, "", synced, enabled)
+				toPad := absolutePad - len(name(elem.Name))
+				line := fmt.Sprintf("%s%*s[%s]  [%s] ", style(name(elem.Name), m.styles.greener), toPad, "", synced, enabled)
 
 				if elem.Name == "Qwerty" {
-					line = fmt.Sprintf("%s%*s     [%s] ", style(elem.Name, m.styles.greener), toPad, "", enabled)
+					line = fmt.Sprintf("%s%*s     [%s] ", style(name(elem.Name), m.styles.greener), toPad, "", enabled)
 				}
 
 				lineContent := wrapWithCursor(isCursorOnLine, line, m.styles.runningTimer)
@@ -223,8 +257,10 @@ func (m model) View() string {
 		view += "\n"
 		accumulatedLength += len(state.config.LayoutFiles)
 
-		help := style("s sync/delete, e enable/disable, esc to menu", m.styles.toEnter)
-		help = lipgloss.NewStyle().Align(lipgloss.Center).Padding(1).Render(help)
+		help = style(help, m.styles.toEnter)
+		if !compact {
+			help = lipgloss.NewStyle().Align(lipgloss.Center).Padding(1).Render(help)
+		}
 		view = lipgloss.NewStyle().Align(lipgloss.Left).Render(view)
 
 		all := lipgloss.JoinVertical(lipgloss.Center, view, help)
@@ -250,64 +286,38 @@ func (m model) View() string {
 			at.Pos = (at.Pos + len(state.base.inputBuffer)) % at.Chars
 			clock = at.progress()
 		}
-		var coloredTimer string
-		if state.timer.isRunning {
-			coloredTimer = style(clock, m.styles.runningTimer)
-		} else {
-			coloredTimer = style(clock, m.styles.stoppedTimer)
-		}
-
-		linesAroundCursor, avgLineLen := state.base.window(lineLenLimit, m.styles)
-		s += positionVerticaly(termHeight)
-		indentBy := uint(math.Max(0, float64(termWidth/2-avgLineLen/2)))
-
-		s += lipgloss.PlaceHorizontal(termWidth, lipgloss.Center, state.base.struck.View()) + "\n\n" + m.indent(coloredTimer, indentBy) + "\n\n" + m.indent(linesAroundCursor, indentBy)
-
-		if !state.timer.isRunning {
-			s += "\n\n\n"
-			s += lipgloss.PlaceHorizontal(termWidth, lipgloss.Center, style(hint(state.book != nil), m.styles.toEnter))
-		}
+		return m.testView(&state.base, clock, state.timer.isRunning, hint(state.book != nil))
 
 	case WordCountBasedTest:
-		var coloredStopwatch string
-		if state.stopwatch.isRunning {
-			coloredStopwatch = style(state.stopwatch.stopwatch.View(), m.styles.runningTimer)
-		} else {
-			coloredStopwatch = style(state.stopwatch.stopwatch.View(), m.styles.stoppedTimer)
-		}
-
-		linesAroundCursor, avgLineLen := state.base.window(lineLenLimit, m.styles)
-		s += positionVerticaly(termHeight)
-		indentBy := uint(math.Max(0, float64(termWidth/2-avgLineLen/2)))
-
-		s += lipgloss.PlaceHorizontal(termWidth, lipgloss.Center, state.base.struck.View()) + "\n\n" + m.indent(coloredStopwatch, indentBy) + "\n\n" + m.indent(linesAroundCursor, indentBy)
-
-		if !state.stopwatch.isRunning {
-			s += "\n\n\n"
-			s += lipgloss.PlaceHorizontal(termWidth, lipgloss.Center, style("ctrl+r restart, esc menu", m.styles.toEnter))
-		}
+		return m.testView(&state.base, state.stopwatch.stopwatch.View(), state.stopwatch.isRunning, hint(false))
 
 	case SentenceCountBasedTest:
-		var coloredStopwatch string
-		if state.stopwatch.isRunning {
-			coloredStopwatch = style(state.stopwatch.stopwatch.View(), m.styles.runningTimer)
-		} else {
-			coloredStopwatch = style(state.stopwatch.stopwatch.View(), m.styles.stoppedTimer)
-		}
-
-		linesAroundCursor, avgLineLen := state.base.window(lineLenLimit, m.styles)
-		indentBy := uint(math.Max(0, float64(termWidth/2-avgLineLen/2)))
-
-		s += positionVerticaly(termHeight)
-		s += lipgloss.PlaceHorizontal(termWidth, lipgloss.Center, state.base.struck.View()) + "\n\n" + m.indent(coloredStopwatch, indentBy) + "\n\n" + m.indent(linesAroundCursor, indentBy)
-
-		if !state.stopwatch.isRunning {
-			s += "\n\n\n"
-			s += lipgloss.PlaceHorizontal(termWidth, lipgloss.Center, style("ctrl+r restart, esc menu", m.styles.toEnter))
-		}
-
+		return m.testView(&state.base, state.stopwatch.stopwatch.View(), state.stopwatch.isRunning, hint(false))
 	}
 
+	return s
+}
+
+// testView is every run's screen: the struck keys, the clock, the lines around the cursor, and the hint while
+// stopped. On a narrow window (the deck is 34 x 20) a line wraps at nearly the full width, and a tall one shows
+// five lines instead of three, since narrow lines hold fewer words.
+func (m model) testView(base *TestBase, clock string, running bool, hint string) string {
+	if running {
+		clock = style(clock, m.styles.runningTimer)
+	} else {
+		clock = style(clock, m.styles.stoppedTimer)
+	}
+	rows := 3
+	if narrow && m.height >= 18 {
+		rows = 5
+	}
+	lines, avg := base.window(lineLenLimit, rows, m.styles)
+	indentBy := uint(max(0, m.width/2-avg/2))
+	s := positionVerticaly(min(m.height/2-3, m.height-rows-8)) +
+		lipgloss.PlaceHorizontal(m.width, lipgloss.Center, base.struck.View()) + "\n\n" + m.indent(clock, indentBy) + "\n\n" + m.indent(lines, indentBy)
+	if !running {
+		s += "\n\n\n" + lipgloss.PlaceHorizontal(m.width, lipgloss.Center, style(hint, m.styles.toEnter))
+	}
 	return s
 }
 
@@ -319,14 +329,8 @@ func plusIfPositive(f float64) string {
 	}
 }
 
-func positionVerticaly(termHeight int) string {
-	var acc strings.Builder
-
-	for i := 0; i < termHeight/2-3; i++ {
-		acc.WriteRune('\n')
-	}
-
-	return acc.String()
+func positionVerticaly(lines int) string {
+	return strings.Repeat("\n", max(0, lines))
 }
 
 func plotWpms(wpms []float64, width, height, padding int) string {
@@ -345,7 +349,7 @@ func plotWpms(wpms []float64, width, height, padding int) string {
 func (selection TimerBasedTestSettings) show(styles Styles) string {
 	var wordListSelection string
 	if selection.enabled {
-		wordListSelection = selection.wordListSelections[selection.wordListCursor].name
+		wordListSelection = listName(selection.wordListSelections[selection.wordListCursor].name)
 	} else {
 		wordListSelection = "no wordlist enabled"
 	}
@@ -362,7 +366,7 @@ func (selection TimerBasedTestSettings) show(styles Styles) string {
 func (selection WordCountBasedTestSettings) show(styles Styles) string {
 	var wordListSelection string
 	if selection.enabled {
-		wordListSelection = selection.wordListSelections[selection.wordListCursor].name
+		wordListSelection = listName(selection.wordListSelections[selection.wordListCursor].name)
 	} else {
 		wordListSelection = "no wordlist enabled"
 	}
@@ -375,7 +379,7 @@ func (selection WordCountBasedTestSettings) show(styles Styles) string {
 func (selection SentenceCountBasedTestSettings) show(styles Styles) string {
 	var wordListSelection string
 	if selection.enabled {
-		wordListSelection = selection.sentenceListSelections[selection.sentenceListCursor].name
+		wordListSelection = listName(selection.sentenceListSelections[selection.sentenceListCursor].name)
 	} else {
 		wordListSelection = "no wordlist enabled"
 	}
@@ -421,8 +425,8 @@ func style(str string, style StringStyle) string {
 	return style(str).String()
 }
 
-// resultsView is the one result screen. Below 20 rows (the deck is 15) it drops the padding and shortens the
-// plot so the coach's lines still fit.
+// resultsView is the one result screen. When the padded layout does not fit the window it drops the padding and
+// shortens the plot so the coach's lines still fit.
 func (m model) resultsView(r Results, wpmEachSecond []float64, wordsLabel string) string {
 	wpm := "wpm: " + style(strconv.Itoa(r.wpm), m.styles.runningTimer)
 	stats := fmt.Sprintf("%s %s %s %s",
@@ -436,16 +440,20 @@ func (m model) resultsView(r Results, wpmEachSecond []float64, wordsLabel string
 	wordsLine := wordsLabel + style(r.wordList, m.styles.greener)
 	help := style("enter again, esc menu", m.styles.toEnter)
 	plotData := append(append([]float64{}, wpmEachSecond...), float64(r.wpm))
-	plotWidth := len(dropAnsiCodes(stats)) - 2
+	plotWidth := min(lipgloss.Width(stats)-2, m.width-8)
+	stats, wordsLine = fit(stats, m.width), fit(wordsLine, m.width)
+	coach := coachPanel(m.styles, m.width)
 
-	var block string
-	if m.height < 20 {
-		block = lipgloss.JoinVertical(lipgloss.Center, wpm, plotWpms(plotData, plotWidth, 3, 0), stats, wordsLine, coachPanel(m.styles), help)
-	} else {
-		block = lipgloss.JoinVertical(lipgloss.Center, resultsStyle.Padding(1).Render(wpm), plotWpms(plotData, plotWidth, 5, 1),
-			resultsStyle.Padding(0).Render(stats), resultsStyle.Render(wordsLine), coachPanel(m.styles), resultsStyle.Render(help))
+	block := lipgloss.JoinVertical(lipgloss.Center, resultsStyle.Padding(1).Render(wpm), plotWpms(plotData, plotWidth, 5, 1),
+		resultsStyle.Padding(0).Render(stats), resultsStyle.Render(wordsLine), coach, resultsStyle.Render(help))
+	if !m.fits(block) {
+		block = lipgloss.JoinVertical(lipgloss.Center, wpm, plotWpms(plotData, plotWidth, 3, 0), stats, wordsLine, coach, help)
 	}
 	return lipgloss.Place(m.width, m.height, lipgloss.Center, lipgloss.Center, block)
+}
+
+func (m model) fits(block string) bool {
+	return lipgloss.Width(block) <= m.width && lipgloss.Height(block) <= m.height
 }
 
 func (m model) progressView(state ProgressView) string {
@@ -465,7 +473,7 @@ func (m model) progressView(state ProgressView) string {
 	trend := fmt.Sprintf(label("last %d: %s wpm %s%%", "%d: %s wpm %s%%"), len(recent), style(fmt.Sprintf("%.0f", wpm), m.styles.runningTimer), style(fmt.Sprintf("%.1f", acc), m.styles.greener))
 	if len(before) > 0 {
 		bWpm, bAcc := avgRuns(before)
-		trend += fmt.Sprintf("  before: %s wpm %s%%", style(fmt.Sprintf("%.0f", bWpm), m.styles.greener), style(fmt.Sprintf("%.1f", bAcc), m.styles.greener))
+		trend += fmt.Sprintf(label("  before: %s wpm %s%%", "  was %s %s%%"), style(fmt.Sprintf("%.0f", bWpm), m.styles.greener), style(fmt.Sprintf("%.1f", bAcc), m.styles.greener))
 	}
 	shown := runs
 	if len(shown) > 40 {
@@ -475,13 +483,15 @@ func (m model) progressView(state ProgressView) string {
 	for i, r := range shown {
 		plot[i] = float64(r.Wpm)
 	}
-	height := 5
-	if m.height < 20 {
-		height = 3
+	var block string
+	for _, height := range []int{5, 3} {
+		block = lipgloss.JoinVertical(lipgloss.Center,
+			"Progress  "+style(plural(len(runs), "run"), m.styles.greener),
+			plotWpms(plot, min(40, m.width-10), height, 0), fit(trend, m.width), coachPanel(m.styles, m.width), m.bookLines(3), style("esc menu", m.styles.toEnter))
+		if m.fits(block) {
+			break
+		}
 	}
-	block := lipgloss.JoinVertical(lipgloss.Center,
-		"Progress  "+style(plural(len(runs), "run"), m.styles.greener),
-		plotWpms(plot, min(40, m.width-10), height, 0), trend, coachPanel(m.styles), m.bookLines(3), style("esc menu", m.styles.toEnter))
 	return lipgloss.Place(m.width, m.height, lipgloss.Center, lipgloss.Center, block)
 }
 
@@ -506,7 +516,7 @@ func lineStarts(text []rune, limit int) []int {
 
 // window draws the lines around the cursor and nothing else. typioca styled every typed character on its own,
 // wrapped all 300 words and stripped the colours back off, on every key and every timer tick, to show three lines.
-func (base *TestBase) window(limit int, styles Styles) (string, int) {
+func (base *TestBase) window(limit, rows int, styles Styles) (string, int) {
 	text := base.wordsToEnter
 	starts := lineStarts(text, limit)
 	end := func(line int) int {
@@ -518,10 +528,8 @@ func (base *TestBase) window(limit int, styles Styles) (string, int) {
 	at := len(base.inputBuffer)
 	cursorLine := sort.Search(len(starts), func(i int) bool { return starts[i] > at }) - 1
 
-	low, high := cursorLine-1, cursorLine+2 // the line above, the cursor's, the line below
-	if cursorLine == 0 {
-		low, high = 0, 3
-	}
+	low := max(0, cursorLine-1) // the line above, the cursor's, the rest below
+	high := low + rows
 	if high > len(starts) {
 		high = len(starts)
 	}
@@ -568,7 +576,11 @@ func (m model) bookLines(limit int) string {
 		if i == limit {
 			break
 		}
-		lines = append(lines, style(b.show(), m.styles.greener))
+		line := b.show()
+		if len(line) > m.width { // the days left go first, then the title
+			line = shorten(b.brief(), m.width)
+		}
+		lines = append(lines, style(line, m.styles.greener))
 	}
 	return strings.Join(lines, "\n")
 }
